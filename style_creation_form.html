@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style Creation Jewel Source</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  :root {
+    --gold: #C9A84C; --gold-light: #E8C97A; --gold-pale: #FBF5E6;
+    --dark: #1A1A2E; --text: #2D2D2D; --text-muted: #6B7280;
+    --border: #E5E7EB; --error: #DC2626; --success: #059669;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .container { width: 100%; max-width: 640px; }
+  .brand { text-align: center; margin-bottom: 28px; }
+  .brand-logo {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-radius: 14px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; color: var(--dark); margin-bottom: 12px;
+  }
+  .brand h1 { color: #fff; font-size: 22px; font-weight: 600; }
+  .brand p { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 4px; }
+  .card { background: #fff; border-radius: 20px; padding: 36px; box-shadow: 0 25px 60px rgba(0,0,0,0.35); }
+  .card-title {
+    font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 24px;
+    padding-bottom: 16px; border-bottom: 2px solid var(--gold-pale);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title::before {
+    content: ''; width: 4px; height: 22px;
+    background: linear-gradient(to bottom, var(--gold), var(--gold-light));
+    border-radius: 2px; display: block;
+  }
+  .field-group { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .field-group.full { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  label .req { color: var(--error); margin-left: 2px; }
+  select, input {
+    width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+    border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 14px;
+    color: var(--text); background: #F9FAFB; transition: all 0.2s;
+    appearance: none; -webkit-appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center;
+    padding-right: 36px; cursor: pointer;
+  }
+  select:focus, input:focus {
+    outline: none; border-color: var(--gold); background: #fff;
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.12);
+  }
+  .field.has-error select, .field.has-error input { border-color: var(--error); background: #FEF2F2; }
+  .error-msg { font-size: 11px; color: var(--error); font-weight: 500; display: none; }
+  .field.has-error .error-msg { display: block; }
+  .uid-wrapper { position: relative; }
+  .uid-wrapper input {
+    background: var(--gold-pale); border-color: var(--gold);
+    color: var(--dark); font-weight: 700; font-size: 15px;
+    letter-spacing: 1px; padding-right: 44px; cursor: not-allowed;
+  }
+  .uid-loader {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; border: 2px solid var(--gold-light);
+    border-top-color: var(--gold); border-radius: 50%;
+    animation: spin 0.7s linear infinite; display: none;
+  }
+  .uid-lock { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; display: none; }
+  @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+  .uid-note { font-size: 11px; color: var(--gold); font-weight: 500; margin-top: 4px; }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px; }
+  .submit-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border: none; border-radius: 12px; font-family: 'Inter', sans-serif;
+    font-size: 15px; font-weight: 700; color: var(--dark); cursor: pointer;
+    transition: all 0.2s; margin-top: 8px;
+  }
+  .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,168,76,0.4); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(26,26,46,0.6); align-items: center; justify-content: center; z-index: 999;
+  }
+  .loading-overlay.show { display: flex; }
+  .loading-box { background: #fff; border-radius: 16px; padding: 28px 36px; text-align: center; }
+  .loading-box p { margin-top: 12px; font-weight: 600; color: var(--dark); }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--gold-light); border-top-color: var(--gold); border-radius: 50%; animation: spin2 0.7s linear infinite; margin: 0 auto; }
+  @keyframes spin2 { to { transform: rotate(360deg); } }
+  .toast {
+    position: fixed; top: 24px; right: 24px; padding: 14px 20px;
+    border-radius: 12px; font-size: 14px; font-weight: 600; color: #fff;
+    opacity: 0; transform: translateY(-10px); transition: all 0.3s; z-index: 1000; max-width: 340px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: var(--success); }
+  .toast.error { background: var(--error); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="brand">
+    <div class="brand-logo">JS</div>
+    <h1>Jewel Source</h1>
+    <p>Style Creation Portal</p>
+  </div>
+  <div class="card">
+    <div class="card-title">New Style Entry</div>
+    <div class="section-label">Classification</div>
+
+    <div class="field-group">
+      <div class="field" id="field-stoneType">
+        <label>Stone Type <span class="req">*</span></label>
+        <select id="stoneType" onchange="onStoneTypeChange()">
+          <option value="">Loading...</option>
+        </select>
+        <span class="error-msg">Please select a stone type</span>
+      </div>
+      <div class="field" id="field-category">
+        <label>Category <span class="req">*</span></label>
+        <select id="category" onchange="onCategoryChange()" disabled>
+          <option value="">Select category...</option>
+        </select>
+        <span class="error-msg">Please select a category</span>
+      </div>
+    </div>
+
+    <div class="field-group full">
+      <div class="field">
+        <label>UID (Auto-assigned)</label>
+        <div class="uid-wrapper">
+          <input type="text" id="uid" placeholder="Select stone type & category first..." readonly>
+          <div class="uid-loader" id="uidLoader"></div>
+          <div class="uid-lock" id="uidLock">🔒</div>
+        </div>
+        <div class="uid-note" id="uidNote"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label">Style Details</div>
+
+    <div class="field-group">
+      <div class="field" id="field-ctw">
+        <label>CTW</label>
+        <input type="number" id="ctw" placeholder="e.g. 0.50" step="0.01" min="0">
+      </div>
+      <div class="field" id="field-colorstone">
+        <label>Colorstone</label>
+        <select id="colorstone">
+          <option value="">None / Loading...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field" id="field-metal">
+        <label>Metal <span class="req">*</span></label>
+        <select id="metal">
+          <option value="">Loading...</option>
+        </select>
+        <span class="error-msg">Please select a metal</span>
+      </div>
+      <div class="field" id="field-size">
+        <label>Size <span class="req">*</span></label>
+        <select id="size">
+          <option value="">Loading...</option>
+        </select>
+        <span class="error-msg">Please select a size</span>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitForm()" disabled>
+      Create Style
+    </button>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <p id="loadingMsg">Loading...</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API_KEY  = 'nc_pat_F9HQ6IvRDC0ySe0VLbF4BrI6Rdf1FManDu7RBnuU';
+const BASE_URL = 'https://db.jsi.studio';
+
+// Style Creation
+const SC_BASE  = 'p5pig2ru4284ft2';
+const SC_TABLE = 'm2ei89b5zqhr1cu';
+
+// Linked table IDs (from the valid record's fk_related_model_id)
+const TBL_STONE_TYPE  = 'mu6pzbj9k7z1ehs';
+const TBL_CATEGORY    = 'm4cym8kn8kxynzs';
+const TBL_COLORSTONE  = 'm6npmo8juryjkz6';
+const TBL_METAL       = 'mxbwq6yta71dia1';
+const TBL_SIZE        = 'mudzx7zipojwm7o';
+
+// UID Base
+const UID_BASE        = 'pbe18uecvc3ly66';
+const UID_TABLE_RING  = 'm5wdqbrjc2yqr2f';
+
+// Map category name to UID table ID (add more as you upload them)
+const UID_TABLES = {
+  'Ring': UID_TABLE_RING,
+  // 'Pendant': 'table_id_here', add others later
+};
+
+// Map stone type name to UID prefix config
+const UID_CONFIG = {
+  'Lab Diamond': {
+    'Ring':     { prefix: 'A', padLen: 0 },
+    'Pendant':  { prefix: 'A', padLen: 0 },
+    'Earring':  { prefix: 'A', padLen: 0 },
+    'Necklace': { prefix: 'A', padLen: 0 },
+    'Bracelet': { prefix: '',  padLen: 4 },
+    'Bangle':   { prefix: 'AABG', padLen: 3 },
+    'Cufflink': { prefix: 'AAC', padLen: 3 },
+    'Brooch':   { prefix: '',  padLen: 4 },
+  }
+};
+
+let allCategories = [];
+let currentUID = '';
+let currentUIDNumber = null;
+
+async function fetchAll(baseId, tableId, fields = '', where = '') {
+  let page = 1, limit = 1000, all = [];
+  while (true) {
+    let url = `${BASE_URL}/api/v1/db/data/noco/${baseId}/${tableId}?limit=${limit}&offset=${(page-1)*limit}`;
+    if (fields) url += `&fields=${encodeURIComponent(fields)}`;
+    if (where)  url += `&where=${encodeURIComponent(where)}`;
+    const res = await fetch(url, { headers: { 'xc-token': API_KEY } });
+    const data = await res.json();
+    const list = data.list || [];
+    all = all.concat(list);
+    if (all.length >= (data.pageInfo?.totalRows || all.length)) break;
+    page++;
+  }
+  return all;
+}
+
+async function init() {
+  showLoading('Loading dropdowns...');
+  try {
+    const [stoneTypes, categories, colorstones, metals, sizes] = await Promise.all([
+      fetchAll(SC_BASE, TBL_STONE_TYPE),
+      fetchAll(SC_BASE, TBL_CATEGORY),
+      fetchAll(SC_BASE, TBL_COLORSTONE),
+      fetchAll(SC_BASE, TBL_METAL),
+      fetchAll(SC_BASE, TBL_SIZE),
+    ]);
+
+    allCategories = categories;
+
+    // Stone Type
+    populateSelect('stoneType', stoneTypes, r => r['Stone Type'], false);
+
+    // Colorstone
+    populateSelect('colorstone', colorstones, r => r['Colorstone'] || r['Name'] || Object.values(r).find(v => typeof v === 'string' && v), true);
+
+    // Metal
+    populateSelect('metal', metals, r => r['Metal'] || r['Name'] || Object.values(r).find(v => typeof v === 'string' && v), false);
+
+    // Size
+    populateSelect('size', sizes, r => r['Size Selection'] || r['Size'] || Object.values(r).find(v => typeof v === 'string' && v), false);
+
+  } catch(e) {
+    showToast('Failed to load dropdowns: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    hideLoading();
+  }
+}
+
+function populateSelect(id, records, labelFn, includeNone) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '';
+  if (includeNone) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'None'; sel.appendChild(opt);
+  } else {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'Select...'; sel.appendChild(opt);
+  }
+  records.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.Id;
+    opt.textContent = labelFn(r) || `ID ${r.Id}`;
+    opt.dataset.name = labelFn(r) || '';
+    sel.appendChild(opt);
+  });
+}
+
+function onStoneTypeChange() {
+  clearField('field-stoneType');
+  clearUID();
+  document.getElementById('submitBtn').disabled = true;
+
+  const stSel = document.getElementById('stoneType');
+  const stName = stSel.options[stSel.selectedIndex]?.dataset.name || '';
+  const catSel = document.getElementById('category');
+  catSel.innerHTML = '<option value="">Select category...</option>';
+  catSel.disabled = !stName;
+
+  // All categories are valid for all stone types — show all
+  allCategories.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.Id;
+    opt.textContent = r['Categories'] || r['Category'] || `ID ${r.Id}`;
+    opt.dataset.name = r['Categories'] || r['Category'] || '';
+    catSel.appendChild(opt);
+  });
+}
+
+function onCategoryChange() {
+  clearField('field-category');
+  clearUID();
+  document.getElementById('submitBtn').disabled = true;
+
+  const stSel  = document.getElementById('stoneType');
+  const catSel = document.getElementById('category');
+  const stName  = stSel.options[stSel.selectedIndex]?.dataset.name || '';
+  const catName = catSel.options[catSel.selectedIndex]?.dataset.name || '';
+
+  if (!catName) return;
+  fetchNextUID(stName, catName);
+}
+
+function clearUID() {
+  currentUID = ''; currentUIDNumber = null;
+  const uid = document.getElementById('uid');
+  uid.value = '';
+  uid.placeholder = 'Select stone type & category first...';
+  document.getElementById('uidNote').textContent = '';
+  document.getElementById('uidLock').style.display = 'none';
+}
+
+async function fetchNextUID(stName, catName) {
+  const loader = document.getElementById('uidLoader');
+  const lock   = document.getElementById('uidLock');
+  const uidInput = document.getElementById('uid');
+  const uidNote  = document.getElementById('uidNote');
+
+  loader.style.display = 'block';
+  uidInput.value = 'Fetching...';
+
+  try {
+    const uidTableId = UID_TABLES[catName];
+
+    if (!uidTableId) {
+      uidInput.value = '';
+      uidInput.placeholder = `UID table for ${catName} not uploaded yet`;
+      uidNote.textContent = `Upload the ${catName} excel to UID Base first`;
+      loader.style.display = 'none';
+      document.getElementById('submitBtn').disabled = false;
+      return;
+    }
+
+    // Fetch all records from UID table for this category
+    const records = await fetchAll(UID_BASE, uidTableId, 'JSI Style#', `(Category,eq,${catName.toUpperCase()})`);
+
+    // Find max numeric UID
+    const cfg = UID_CONFIG[stName]?.[catName] || { prefix: '', padLen: 4 };
+    const prefix = cfg.prefix;
+    let maxNum = 0;
+
+    records.forEach(r => {
+      const jsi = String(r['JSI Style#'] || '').trim().toUpperCase();
+      let num = 0;
+      if (prefix && jsi.startsWith(prefix)) {
+        num = parseInt(jsi.slice(prefix.length)) || 0;
+      } else {
+        const m = jsi.match(/(\d+)$/);
+        if (m) num = parseInt(m[1]);
+      }
+      if (num > maxNum) maxNum = num;
+    });
+
+    const nextNum = maxNum + 1;
+    currentUIDNumber = nextNum;
+
+    // Format display UID
+    if (prefix === 'A') {
+      currentUID = `A${nextNum}`;
+    } else if (prefix) {
+      currentUID = `${prefix}${String(nextNum).padStart(cfg.padLen, '0')}`;
+    } else {
+      currentUID = String(nextNum).padStart(cfg.padLen, '0');
+    }
+
+    uidInput.value = currentUID;
+    uidNote.textContent = `✓ Auto-assigned — ${records.length} existing ${catName} styles found`;
+    lock.style.display = 'block';
+    document.getElementById('submitBtn').disabled = false;
+
+  } catch(e) {
+    uidInput.value = '';
+    uidInput.placeholder = 'Error fetching UID';
+    uidNote.textContent = e.message;
+    console.error(e);
+  } finally {
+    loader.style.display = 'none';
+  }
+}
+
+function clearField(id) { document.getElementById(id)?.classList.remove('has-error'); }
+function setError(id)   { document.getElementById(id)?.classList.add('has-error'); }
+
+function validate() {
+  let ok = true;
+  if (!document.getElementById('stoneType').value) { setError('field-stoneType'); ok = false; }
+  if (!document.getElementById('category').value)  { setError('field-category');  ok = false; }
+  if (!document.getElementById('metal').value)     { setError('field-metal');      ok = false; }
+  if (!document.getElementById('size').value)      { setError('field-size');       ok = false; }
+  return ok;
+}
+
+async function submitForm() {
+  if (!validate()) return;
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+  showLoading('Saving style to NocoDB...');
+
+  // Build payload with linked record IDs ({"Id": X} format)
+  const stoneTypeId   = parseInt(document.getElementById('stoneType').value);
+  const categoryId    = parseInt(document.getElementById('category').value);
+  const metalId       = parseInt(document.getElementById('metal').value);
+  const sizeId        = parseInt(document.getElementById('size').value);
+  const colId         = document.getElementById('colorstone').value;
+  const ctw           = document.getElementById('ctw').value;
+
+  const payload = {
+    'Stone Type': { Id: stoneTypeId },
+    'Category':   { Id: categoryId },
+    'Metal':      { Id: metalId },
+    'Size':       { Id: sizeId },
+    'UID':        String(currentUIDNumber),
+  };
+
+  if (ctw) payload['CTW'] = parseFloat(ctw);
+  if (colId) payload['Colorstone'] = { Id: parseInt(colId) };
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/api/v1/db/data/noco/${SC_BASE}/${SC_TABLE}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'xc-token': API_KEY },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(JSON.stringify(result));
+
+    showToast(`✓ Style created! UID: ${currentUID}`, 'success');
+    resetForm();
+
+  } catch(e) {
+    showToast('Failed to save: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    hideLoading();
+    btn.disabled = false;
+    btn.textContent = 'Create Style';
+  }
+}
+
+function resetForm() {
+  ['stoneType','category','ctw','colorstone','metal','size'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') { el.value = ''; if (id === 'category') el.disabled = true; }
+    else el.value = '';
+  });
+  clearUID();
+  document.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
+  document.getElementById('submitBtn').disabled = true;
+}
+
+function showLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+init();
+</script>
+</body>
+</html>
