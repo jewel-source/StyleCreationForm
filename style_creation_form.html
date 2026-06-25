@@ -104,6 +104,24 @@
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast.success { background: var(--success); }
   .toast.error { background: var(--error); }
+
+  .style-preview {
+    background: #F0FDF4; border: 1.5px solid #059669; border-radius: 10px;
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .style-preview.invalid { background: #FEF2F2; border-color: var(--error); }
+  .style-preview.pending { background: #F9FAFB; border-color: var(--border); }
+  .style-preview-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .style-preview-value { font-size: 16px; font-weight: 700; letter-spacing: 1.5px; color: var(--dark); font-family: monospace; }
+  .style-preview-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    background: #059669; color: #fff;
+  }
+  .style-preview.invalid .style-preview-badge { background: var(--error); }
+  .style-preview.pending .style-preview-badge { background: var(--text-muted); }
+
+
 </style>
 </head>
 <body>
@@ -116,7 +134,7 @@
   <div class="card">
     <div class="card-title">New Style Entry</div>
     <div class="section-label">Classification</div>
-
+ 
     <div class="field-group">
       <div class="field" id="field-stoneType">
         <label>Stone Type <span class="req">*</span></label>
@@ -133,7 +151,7 @@
         <span class="error-msg">Please select a category</span>
       </div>
     </div>
-
+ 
     <div class="field-group full">
       <div class="field">
         <label>UID (Auto-assigned)</label>
@@ -145,46 +163,55 @@
         <div class="uid-note" id="uidNote"></div>
       </div>
     </div>
-
+ 
     <div class="divider"></div>
     <div class="section-label">Style Details</div>
-
+ 
     <div class="field-group">
       <div class="field" id="field-ctw">
         <label>CTW</label>
-        <input type="number" id="ctw" placeholder="e.g. 0.50" step="0.01" min="0">
+        <input type="number" id="ctw" placeholder="e.g. 0.50" step="0.01" min="0" oninput="updateStylePreview()">
       </div>
       <div class="field" id="field-colorstone">
         <label>Colorstone</label>
-        <select id="colorstone">
-          <option value="">None / Loading...</option>
+        <select id="colorstone" onchange="updateStylePreview()">
+          <option value="">None</option>
         </select>
       </div>
     </div>
-
+ 
     <div class="field-group">
       <div class="field" id="field-metal">
         <label>Metal <span class="req">*</span></label>
-        <select id="metal">
+        <select id="metal" onchange="updateStylePreview()">
           <option value="">Loading...</option>
         </select>
         <span class="error-msg">Please select a metal</span>
       </div>
       <div class="field" id="field-size">
         <label>Size <span class="req">*</span></label>
-        <select id="size">
+        <select id="size" onchange="updateStylePreview()">
           <option value="">Loading...</option>
         </select>
         <span class="error-msg">Please select a size</span>
       </div>
     </div>
-
+ 
+    <!-- Live Style # Preview -->
+    <div class="style-preview pending" id="stylePreview">
+      <div>
+        <div class="style-preview-label">Generated Style #</div>
+        <div class="style-preview-value" id="stylePreviewValue">—</div>
+      </div>
+      <div class="style-preview-badge" id="stylePreviewBadge">Pending</div>
+    </div>
+ 
     <button class="submit-btn" id="submitBtn" onclick="submitForm()" disabled>
       Create Style
     </button>
   </div>
 </div>
-
+ 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-box">
     <div class="spinner"></div>
@@ -211,10 +238,14 @@ const TBL_SIZE        = 'mudzx7zipojwm7o';
 // UID Base
 const UID_BASE        = 'pbe18uecvc3ly66';
 const UID_TABLE_RING  = 'm5wdqbrjc2yqr2f';
+const UID_TABLE_EARRING = 'm4jbmsd175z1eom';
+const UID_TABLE_PENDANT = 'mhcwzcfekl0lhhh';
 
 // Map category name to UID table ID (add more as you upload them)
 const UID_TABLES = {
   'Ring': UID_TABLE_RING,
+  'Earrings': UID_TABLE_EARRING,
+  'Pendant': UID_TABLE_PENDANT
   // 'Pendant': 'table_id_here', add others later
 };
 
@@ -230,6 +261,11 @@ const UID_CONFIG = {
     'Cufflink': { prefix: 'AAC', padLen: 3 },
     'Brooch':   { prefix: '',  padLen: 4 },
   }
+};
+const CATEGORY_MAP = {
+  'Ring': 'RING', 'Earrings': 'EARRINGS', 'Earring': 'EARRINGS',
+  'Pendant': 'PENDANT', 'Necklace': 'NECKLACE', 'Bracelet': 'BRACELET',
+  'Bangle': 'BANGLE', 'Cufflink': 'CUFFLINK', 'Brooch': 'BROOCH', 'Set': 'SET',
 };
 
 let allCategories = [];
@@ -262,21 +298,14 @@ async function init() {
       fetchAll(SC_BASE, TBL_METAL),
       fetchAll(SC_BASE, TBL_SIZE),
     ]);
-
+ 
     allCategories = categories;
-
-    // Stone Type
-    populateSelect('stoneType', stoneTypes, r => r['Stone Type'], false);
-
-    // Colorstone
-    populateSelect('colorstone', colorstones, r => r['Colorstone'] || r['Name'] || Object.values(r).find(v => typeof v === 'string' && v), true);
-
-    // Metal
-    populateSelect('metal', metals, r => r['Metal'] || r['Name'] || Object.values(r).find(v => typeof v === 'string' && v), false);
-
-    // Size
-    populateSelect('size', sizes, r => r['Size Selection'] || r['Size'] || Object.values(r).find(v => typeof v === 'string' && v), false);
-
+ 
+    populateSelect('stoneType', stoneTypes, r => r['Stone Type'], r => r['Style # Code'], false);
+    populateSelect('colorstone', colorstones, r => r['Colorstone'], r => r['Style # Code'], true);
+    populateSelect('metal', metals, r => r['Metal'], r => r['Style # Code'], false);
+    populateSelect('size',sizes, r => r['Size Selection'] || r['Size'], r => r['Style # Code'], false);
+ 
   } catch(e) {
     showToast('Failed to load dropdowns: ' + e.message, 'error');
     console.error(e);
@@ -285,21 +314,18 @@ async function init() {
   }
 }
 
-function populateSelect(id, records, labelFn, includeNone) {
+function populateSelect(id, records, labelFn, codeFn, includeNone) {
   const sel = document.getElementById(id);
   sel.innerHTML = '';
-  if (includeNone) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = 'None'; sel.appendChild(opt);
-  } else {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.textContent = 'Select...'; sel.appendChild(opt);
-  }
+  const blank = document.createElement('option');
+  blank.value = ''; blank.textContent = includeNone ? 'None' : 'Select...';
+  sel.appendChild(blank);
   records.forEach(r => {
     const opt = document.createElement('option');
-    opt.value = r.Id;
-    opt.textContent = labelFn(r) || `ID ${r.Id}`;
+    opt.value        = r.Id;
+    opt.textContent  = labelFn(r) || `ID ${r.Id}`;
     opt.dataset.name = labelFn(r) || '';
+    opt.dataset.code = codeFn(r)  || '';
     sel.appendChild(opt);
   });
 }
@@ -307,6 +333,7 @@ function populateSelect(id, records, labelFn, includeNone) {
 function onStoneTypeChange() {
   clearField('field-stoneType');
   clearUID();
+  updateStylePreview();
   document.getElementById('submitBtn').disabled = true;
 
   const stSel = document.getElementById('stoneType');
@@ -321,6 +348,7 @@ function onStoneTypeChange() {
     opt.value = r.Id;
     opt.textContent = r['Categories'] || r['Category'] || `ID ${r.Id}`;
     opt.dataset.name = r['Categories'] || r['Category'] || '';
+    opt.dataset.code = r['Style # Code'] || '';
     catSel.appendChild(opt);
   });
 }
@@ -328,6 +356,7 @@ function onStoneTypeChange() {
 function onCategoryChange() {
   clearField('field-category');
   clearUID();
+  updateStylePreview();
   document.getElementById('submitBtn').disabled = true;
 
   const stSel  = document.getElementById('stoneType');
@@ -349,34 +378,33 @@ function clearUID() {
 }
 
 async function fetchNextUID(stName, catName) {
-  const loader = document.getElementById('uidLoader');
-  const lock   = document.getElementById('uidLock');
+  const loader   = document.getElementById('uidLoader');
+  const lock     = document.getElementById('uidLock');
   const uidInput = document.getElementById('uid');
   const uidNote  = document.getElementById('uidNote');
-
+ 
   loader.style.display = 'block';
   uidInput.value = 'Fetching...';
-
+ 
   try {
     const uidTableId = UID_TABLES[catName];
-
+ 
     if (!uidTableId) {
-      uidInput.value = '';
+      uidInput.value       = '';
       uidInput.placeholder = `UID table for ${catName} not uploaded yet`;
-      uidNote.textContent = `Upload the ${catName} excel to UID Base first`;
+      uidNote.textContent  = `Upload the ${catName} Excel to UID Base first`;
       loader.style.display = 'none';
-      document.getElementById('submitBtn').disabled = false;
+      updateStylePreview();
       return;
     }
-
-    // Fetch all records from UID table for this category
-    const records = await fetchAll(UID_BASE, uidTableId, 'JSI Style#', `(Category,eq,${catName.toUpperCase()})`);
-
-    // Find max numeric UID
-    const cfg = UID_CONFIG[stName]?.[catName] || { prefix: '', padLen: 4 };
+ 
+    const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase();
+    const records   = await fetchAll(UID_BASE, uidTableId, 'JSI Style#', `(Category,eq,${catFilter})`);
+ 
+    const cfg    = UID_CONFIG[stName]?.[catName] || { prefix: '', padLen: 4 };
     const prefix = cfg.prefix;
-    let maxNum = 0;
-
+    let maxNum   = 0;
+ 
     records.forEach(r => {
       const jsi = String(r['JSI Style#'] || '').trim().toUpperCase();
       let num = 0;
@@ -388,11 +416,10 @@ async function fetchNextUID(stName, catName) {
       }
       if (num > maxNum) maxNum = num;
     });
-
-    const nextNum = maxNum + 1;
+ 
+    const nextNum    = maxNum + 1;
     currentUIDNumber = nextNum;
-
-    // Format display UID
+ 
     if (prefix === 'A') {
       currentUID = `A${nextNum}`;
     } else if (prefix) {
@@ -400,16 +427,18 @@ async function fetchNextUID(stName, catName) {
     } else {
       currentUID = String(nextNum).padStart(cfg.padLen, '0');
     }
-
-    uidInput.value = currentUID;
+ 
+    uidInput.value      = currentUID;
     uidNote.textContent = `✓ Auto-assigned — ${records.length} existing ${catName} styles found`;
-    lock.style.display = 'block';
-    document.getElementById('submitBtn').disabled = false;
-
+    lock.style.display  = 'block';
+ 
+    // FIX: update preview after UID is ready
+    updateStylePreview();
+ 
   } catch(e) {
-    uidInput.value = '';
+    uidInput.value       = '';
     uidInput.placeholder = 'Error fetching UID';
-    uidNote.textContent = e.message;
+    uidNote.textContent  = e.message;
     console.error(e);
   } finally {
     loader.style.display = 'none';
@@ -502,6 +531,65 @@ function showToast(msg, type) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+function buildStyleNumber() {
+  const stSel    = document.getElementById('stoneType');
+  const catSel   = document.getElementById('category');
+  const metalSel = document.getElementById('metal');
+  const colSel   = document.getElementById('colorstone');
+  const sizeSel  = document.getElementById('size');
+  const ctw      = document.getElementById('ctw').value;
+
+  const stCode  = stSel.options[stSel.selectedIndex]?.dataset.code    || '';
+  const catCode = catSel.options[catSel.selectedIndex]?.dataset.code   || '';
+  const mCode   = metalSel.options[metalSel.selectedIndex]?.dataset.code || '';
+  const sCode   = sizeSel.options[sizeSel.selectedIndex]?.dataset.code  || '';
+
+  let midCode = '';
+  if (ctw && parseFloat(ctw) > 0) {
+    // e.g. 0.50 → "050", 2.00 → "200", 1.25 → "125"
+    const ctwNum = Math.round(parseFloat(ctw) * 10);
+    midCode = String(ctwNum).padStart(3, '0');
+  } else if (colSel.value) {
+    midCode = colSel.options[colSel.selectedIndex]?.dataset.code || '';
+  }
+
+  // UID padded to 4 digits
+  const uidPart = currentUIDNumber ? String(currentUIDNumber).padStart(4, '0') : '';
+
+  if (!stCode || !catCode || !midCode || !mCode || !uidPart || !sCode) return null;
+
+  return `${stCode}${catCode}${midCode}${mCode}${uidPart}${sCode}`;
+}
+ 
+function updateStylePreview() {
+  const preview = document.getElementById('stylePreview');
+  const val     = document.getElementById('stylePreviewValue');
+  const badge   = document.getElementById('stylePreviewBadge');
+  const btn     = document.getElementById('submitBtn');
+ 
+  const style = buildStyleNumber();
+ 
+  if (!style) {
+    preview.className = 'style-preview pending';
+    val.textContent   = '—';
+    badge.textContent = 'Pending';
+    btn.disabled      = true;
+    return;
+  }
+ 
+  val.textContent = style;
+ 
+  if (style.length === 13) {
+    preview.className = 'style-preview';
+    badge.textContent = `✓ ${style.length} chars`;
+    btn.disabled      = false;
+  } else {
+    preview.className = 'style-preview invalid';
+    badge.textContent = `✗ ${style.length}/13 chars`;
+    btn.disabled      = true;
+  }
 }
 
 init();
