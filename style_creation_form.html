@@ -78,6 +78,17 @@
         <span class="error-msg">Please select a size</span>
       </div>
     </div>
+
+    <div class="field" id="field-vendor-name">
+  <label>Vendor Name</label>
+  <input type="text" id="vendorName" placeholder="e.g. Omnia">
+</div>
+
+<div class="field" id="field-vendor-style">
+  <label>Vendor Style#</label>
+  <input type="text" id="vendorStyle" placeholder="e.g. OR6094400">
+</div>
+
  
     <!-- Live Style # Preview -->
     <div class="style-preview pending" id="stylePreview">
@@ -359,6 +370,12 @@ async function submitForm() {
   const sizeId        = parseInt(document.getElementById('size').value);
   const colId         = document.getElementById('colorstone').value;
   const ctw           = document.getElementById('ctw').value;
+  const vendorName  = document.getElementById('vendorName').value.trim();
+  const vendorStyle = document.getElementById('vendorStyle').value.trim();
+  const styleNum    = buildStyleNumber();
+
+  const catSel  = document.getElementById('category');
+  const catName = catSel.options[catSel.selectedIndex]?.dataset.name || '';
 
   const payload = {
     'Stone Type': { Id: stoneTypeId },
@@ -384,6 +401,46 @@ async function submitForm() {
     const result = await res.json();
     if (!res.ok) throw new Error(JSON.stringify(result));
 
+    const uidTableId = UID_TABLES[catName];
+    if (uidTableId && styleNum) {
+  const existing = await fetchAll(
+    UID_BASE, uidTableId, 'Id,JSI Style#',
+    `(JSI Style#,eq,${currentUIDNumber})`
+  );
+
+  if (existing.length > 0) {
+    const rowId = existing[0].Id;
+    await fetch(
+      `${BASE_URL}/api/v1/db/data/noco/${UID_BASE}/${uidTableId}/${rowId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'xc-token': API_KEY },
+        body: JSON.stringify({
+          'Vendor':        vendorName  || '',
+          'Vendor Style#': vendorStyle || '',
+          'Category':      catName.toUpperCase(),
+          'Our Style#':    styleNum,
+        }),
+      }
+    );
+  } else {
+    await fetch(
+      `${BASE_URL}/api/v1/db/data/noco/${UID_BASE}/${uidTableId}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'xc-token': API_KEY },
+        body: JSON.stringify({
+          'Vendor':        vendorName  || '',
+          'Vendor Style#': vendorStyle || '',
+          'Category':      catName.toUpperCase(),
+          'JSI Style#':    String(currentUIDNumber),
+          'Our Style#':    styleNum,
+        }),
+      }
+    );
+  }
+}
+
     showToast(`✓ Style created! UID: ${currentUID}`, 'success');
     resetForm();
 
@@ -403,6 +460,8 @@ function resetForm() {
     if (el.tagName === 'SELECT') { el.value = ''; if (id === 'category') el.disabled = true; }
     else el.value = '';
   });
+  document.getElementById('vendorName').value  = '';
+  document.getElementById('vendorStyle').value = '';
   clearUID();
   document.querySelectorAll('.field').forEach(f => f.classList.remove('has-error'));
   document.getElementById('submitBtn').disabled = true;
