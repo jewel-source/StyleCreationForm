@@ -49,35 +49,35 @@ export default function StyleForm() {
   const [sizeDisabled, setSizeDisabled] = useState(false)
 
   // Load dropdowns
-  useEffect(() => {
-    fetch('/api/dropdowns')
-      .then(r => r.json())
-      .then(data => {
-        const toOpt = (r: any, labelKey: string): Option => ({
-          id:    r.Id,
-          label: r[labelKey] || `ID ${r.Id}`,
-          code:  r['Style # Code'] || '',
-          name:  r[labelKey] || '',
-        })
-
-        setStoneTypes(data.stoneTypes.map((r: any) => toOpt(r, 'Stone Type')))
-        setCategories(data.categories.map((r: any) => ({
-          id:    r.Id,
-          label: r['Categories'] || r['Category'] || `ID ${r.Id}`,
-          code:  r['Style # Code'] || '',
-          name:  r['Categories'] || r['Category'] || '',
-        })))
-        setColorstones(data.colorstones.map((r: any) => toOpt(r, 'Colorstone')))
-        setMetals(data.metals.map((r: any) => toOpt(r, 'Metal')))
-        setAllSizes(data.sizes)
+ useEffect(() => {
+  fetch('/api/dropdowns')
+    .then(r => r.json())
+    .then(data => {
+      const toOpt = (r: any, labelKey: string): Option => ({
+        id:    r.Id,
+        label: r[labelKey] || `ID ${r.Id}`,
+        code:  r['Style # Code'] || '',
+        name:  r[labelKey] || '',
       })
-      .catch(e => showToast('Failed to load dropdowns: ' + e.message, 'error'))
-      .finally(() => setLoading(false))
-  }, [])
+      setStoneTypes((data.stoneTypes  || []).map((r: any) => toOpt(r, 'Stone Type')))
+      setColorstones((data.colorstones || []).map((r: any) => toOpt(r, 'Colorstone')))
+      setMetals((data.metals || []).map((r: any) => toOpt(r, 'Metal')))
+      setAllSizes(data.sizes || [])
+      setCategories((data.categories || []).map((r: any) => ({
+        id:    r.Id,
+        label: r['Categories'] || r['Category'] || `ID ${r.Id}`,
+        code:  r['Style # Code'] || '',
+        name:  r['Categories'] || r['Category'] || '',
+      })))
+    })
+    .catch(e => showToast('Failed to load dropdowns: ' + e.message, 'error'))
+    .finally(() => setLoading(false))
+}, [])
 
-  // Fetch UID when stone type + category selected
+
   useEffect(() => {
     if (!stoneType || !category) return
+    if (stoneTypes.length === 0 || categories.length === 0) return
     const stName  = stoneTypes.find(o => String(o.id) === stoneType)?.name  || ''
     const catName = categories.find(o => String(o.id) === category)?.name || ''
     if (!stName || !catName) return
@@ -100,7 +100,7 @@ export default function StyleForm() {
       })
       .catch(e => { setUid(''); setUidNote(e.message) })
       .finally(() => setUidLoading(false))
-  }, [stoneType, category])
+  }, [stoneType, category, stoneTypes, categories])
 
   // Handle stone type change
   const onStoneTypeChange = (val: string) => {
