@@ -1,4 +1,4 @@
-import StyleForm from '@/app/components/StyleForm'
+import StyleForm from '@/components/StyleForm'
 
 export default function Home() {
   return (
