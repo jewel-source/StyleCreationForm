@@ -164,6 +164,7 @@ const CATEGORY_MAP = {
 let allCategories = [];
 let currentUID = '';
 let currentUIDNumber = null;
+let allSizes = [];
 
 async function fetchAll(baseId, tableId, fields = '', where = '') {
   let page = 1, limit = 1000, all = [];
@@ -193,6 +194,7 @@ async function init() {
     ]);
  
     allCategories = categories;
+    allSizes = sizes;
  
     populateSelect('stoneType', stoneTypes, r => r['Stone Type'], r => r['Style # Code'], false);
     populateSelect('colorstone', colorstones, r => r['Colorstone'], r => r['Style # Code'], true);
@@ -235,6 +237,18 @@ function onStoneTypeChange() {
   catSel.innerHTML = '<option value="">Select category...</option>';
   catSel.disabled = !stName;
 
+  const colSel = document.getElementById('colorstone');
+  const gemStones = ['Natural Gemstone', 'Lab Gem'];
+  if (gemStones.includes(stName)) {
+    colSel.disabled = false;
+    colSel.style.opacity = '1';
+  } else {
+    colSel.value    = '';
+    colSel.disabled = true;
+    colSel.style.opacity = '0.5';
+  }
+
+
   // All categories are valid for all stone types — show all
   allCategories.forEach(r => {
     const opt = document.createElement('option');
@@ -254,11 +268,71 @@ function onCategoryChange() {
 
   const stSel  = document.getElementById('stoneType');
   const catSel = document.getElementById('category');
+  const sizeSel = document.getElementById('size');
   const stName  = stSel.options[stSel.selectedIndex]?.dataset.name || '';
   const catName = catSel.options[catSel.selectedIndex]?.dataset.name || '';
 
+  const noSizeCategories = ['Earrings', 'Earring', 'Pendant', 'Brooch', 'Cufflink', 'Set', 'Anklet'];
+  const sizeCategories   = ['Ring', 'Bracelet', 'Necklace', 'Bangle'];
+
+  sizeSel.innerHTML = '';
+
+  if (noSizeCategories.includes(catName)) {
+    const xOpt = allSizes.find(r => (r['Style # Code'] || '') === 'X');
+    if (xOpt) {
+      const opt = document.createElement('option');
+      opt.value        = xOpt.Id;
+      opt.textContent  = xOpt['Size Selection'] || xOpt['Size'] || 'X';
+      opt.dataset.name = opt.textContent;
+      opt.dataset.code = 'X';
+      sizeSel.appendChild(opt);
+      sizeSel.value    = xOpt.Id;
+    }
+    sizeSel.disabled      = true;
+    sizeSel.style.opacity = '0.5';
+  } else if (sizeCategories.includes(catName)) {
+    const blank = document.createElement('option');
+    blank.value = ''; blank.textContent = 'Select...';
+    sizeSel.appendChild(blank);
+
+    allSizes
+      .filter(r => {
+        const label = r['Size Selection'] || r['Size'] || '';
+        const code  = r['Style # Code'] || '';
+        return label.includes(catName) || code === 'X';
+      })
+      .forEach(r => {
+        const opt = document.createElement('option');
+        opt.value        = r.Id;
+        opt.textContent  = r['Size Selection'] || r['Size'] || `ID ${r.Id}`;
+        opt.dataset.name = opt.textContent;
+        opt.dataset.code = r['Style # Code'] || '';
+        sizeSel.appendChild(opt);
+      });
+
+    sizeSel.value         = '';
+    sizeSel.disabled      = false;
+    sizeSel.style.opacity = '1';
+  } else {
+    const blank = document.createElement('option');
+    blank.value = ''; blank.textContent = 'Select...';
+    sizeSel.appendChild(blank);
+    allSizes.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value        = r.Id;
+      opt.textContent  = r['Size Selection'] || r['Size'] || `ID ${r.Id}`;
+      opt.dataset.name = opt.textContent;
+      opt.dataset.code = r['Style # Code'] || '';
+      sizeSel.appendChild(opt);
+    });
+    sizeSel.value         = '';
+    sizeSel.disabled      = false;
+    sizeSel.style.opacity = '1';
+  }
+
   if (!catName) return;
   fetchNextUID(stName, catName);
+  updateStylePreview();
 }
 
 function clearUID() {
