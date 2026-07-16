@@ -177,6 +177,8 @@ export default function StyleForm() {
     if (!category)   errs.category  = 'Please select a category'
     if (!metal)      errs.metal     = 'Please select a metal'
     if (!size)       errs.size      = 'Please select a size'
+    if (!vendorName.trim())  errs.vendorName  = 'Vendor Name is required'
+    if (!vendorStyle.trim()) errs.vendorStyle = 'Vendor Style# is required'
     if (!styleValid) errs.style     = `Style # must be 13 chars. Currently: ${styleNum?.length ?? 0}`
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -318,14 +320,16 @@ export default function StyleForm() {
 
         <div className={styles.fieldGroup}>
           <div className={styles.field}>
-            <label>Vendor Name</label>
+            <label>Vendor Name <span className={styles.req}>*</span></label>
             <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)}
-              placeholder="e.g. Omnia" />
+              placeholder="e.g. Omnia" className={errors.vendorName ? styles.inputError : ''} />
+                {errors.vendorName && <span className={styles.errorMsg}>{errors.vendorName}</span>}
           </div>
           <div className={styles.field}>
-            <label>Vendor Style#</label>
+            <label>Vendor Style# <span className={styles.req}>*</span></label>
             <input type="text" value={vendorStyle} onChange={e => setVendorStyle(e.target.value)}
-              placeholder="e.g. OR6094400" />
+              placeholder="e.g. OR6094400" className={errors.vendorStyle ? styles.inputError : ''} />
+                {errors.vendorStyle && <span className={styles.errorMsg}>{errors.vendorStyle}</span>}
           </div>
         </div>
 

@@ -4,6 +4,9 @@ const BASE_URL = process.env.NOCODB_BASE_URL!
 export const SC_BASE  = 'p5pig2ru4284ft2'
 export const SC_TABLE = 'm2ei89b5zqhr1cu'
 
+export const SUBMIT_BASE  = 'pbz6yuf1ab25wde'
+export const SUBMIT_TABLE = 'mdyd9dhavs9hbi5'
+
 export const TBL_STONE_TYPE = 'mu6pzbj9k7z1ehs'
 export const TBL_CATEGORY   = 'm4cym8kn8kxynzs'
 export const TBL_COLORSTONE = 'm6npmo8juryjkz6'
@@ -23,6 +26,18 @@ export const UID_TABLES: Record<string, string> = {
   Bangle:    'm2txsqct7he087u',
   Cufflink:  'mumel64d3luco2z',
   Brooch:    'm4mppod4okuj6jm',
+}
+
+export const PREFIX: Record<string, string> = {
+  Ring:      'A',
+  Pendant:   'A',
+  Earrings:  'A',
+  Earring:   'A',
+  Necklace:  '',
+  Bracelet:  '',
+  Bangle:    'AABG',
+  Cufflink:  'AAC',
+  Brooch:    '',
 }
 
 export const CATEGORY_MAP: Record<string, string> = {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP } from '@/lib/nocodb'
+import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX } from '@/lib/nocodb'
 
 // Starting UID number per category
 const START_UID: Record<string, number> = {
@@ -9,19 +9,6 @@ const START_UID: Record<string, number> = {
   Earrings:  928,
   Earring:   928,
   Bracelet:  241,
-}
-
-// Prefix used in the JSI Style# column (for parsing/matching existing rows)
-const PREFIX: Record<string, string> = {
-  Ring:      'A',
-  Pendant:   'A',
-  Earrings:  'A',
-  Earring:   'A',
-  Necklace:  'A',
-  Bracelet:  '',
-  Bangle:    'AABG',
-  Cufflink:  'AAC',
-  Brooch:    '',
 }
 
 export async function GET(req: NextRequest) {
