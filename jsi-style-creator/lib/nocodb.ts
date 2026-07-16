@@ -13,10 +13,29 @@ export const TBL_SIZE       = 'mudzx7zipojwm7o'
 export const UID_BASE = 'pbe18uecvc3ly66'
 
 export const UID_TABLES: Record<string, string> = {
-  Ring:     'm5wdqbrjc2yqr2f',
-  Earrings: 'm4jbmsd175z1eom',
-  Earring:  'm4jbmsd175z1eom',
-  Pendant:  'mhcwzcfekl0lhhh',
+// AA LGD tables
+  Ring:      'mfmus851vbmu2ij',
+  Earrings:  'mgqpbfub39qqbgb',
+  Earring:   'mgqpbfub39qqbgb',
+  Pendant:   'mf6j0vpqaeyrrar',
+  Necklace:  'mt7bdfmvdablg77',
+  Bracelet:  'mtrhkm3cr3mhw7s',
+  Bangle:    'm2txsqct7he087u',
+  Cufflink:  'mumel64d3luco2z',
+  Brooch:    'm4mppod4okuj6jm',
+}
+
+export const CATEGORY_MAP: Record<string, string> = {
+  Ring:      'RING',
+  Earrings:  'EARRINGS',
+  Earring:   'EARRINGS',
+  Pendant:   'PENDANT',
+  Necklace:  'NECKLACE',
+  Bracelet:  'BRACELET',
+  Bangle:    'BANGLE',
+  Cufflink:  'CUFFLINK',
+  Brooch:    'BROOCH',
+  Set:       'SET',
 }
 
 export async function fetchAll(baseId: string, tableId: string, fields = '', where = ''): Promise<any[]> {

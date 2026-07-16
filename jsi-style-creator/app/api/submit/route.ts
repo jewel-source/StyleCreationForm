@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll, createRow, patchRow, SC_BASE, SC_TABLE, UID_BASE, UID_TABLES } from '@/lib/nocodb'
+import { fetchAll, createRow, patchRow, SC_BASE, SC_TABLE, UID_BASE, UID_TABLES, CATEGORY_MAP } from '@/lib/nocodb'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,13 +20,14 @@ export async function POST(req: NextRequest) {
     if (ctw)          payload['CTW']        = parseFloat(ctw)
     if (colorstoneId) payload['Colorstone'] = { Id: parseInt(colorstoneId) }
 
-    const styleRes = await createRow(SC_BASE, SC_TABLE, payload)
+    const styleRes    = await createRow(SC_BASE, SC_TABLE, payload)
     const styleResult = await styleRes.json()
     if (!styleRes.ok) throw new Error(JSON.stringify(styleResult))
 
     const uidTableId = UID_TABLES[catName]
     if (uidTableId && styleNum) {
-      const existing = await fetchAll(
+      const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase()
+      const existing  = await fetchAll(
         UID_BASE, uidTableId, 'Id,JSI Style#',
         `(JSI Style#,eq,${uidNumber})`
       )
@@ -34,14 +35,14 @@ export async function POST(req: NextRequest) {
         await patchRow(UID_BASE, uidTableId, existing[0].Id, {
           'Vendor':        vendorName  || '',
           'Vendor Style#': vendorStyle || '',
-          'Category':      catName.toUpperCase(),
+          'Category':      catFilter,
           'Our Style#':    styleNum,
         })
       } else {
         await createRow(UID_BASE, uidTableId, {
           'Vendor':        vendorName  || '',
           'Vendor Style#': vendorStyle || '',
-          'Category':      catName.toUpperCase(),
+          'Category':      catFilter,
           'JSI Style#':    String(uidNumber),
           'Our Style#':    styleNum,
         })

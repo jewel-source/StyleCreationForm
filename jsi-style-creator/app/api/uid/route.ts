@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll, UID_BASE, UID_TABLES } from '@/lib/nocodb'
-
-const CATEGORY_MAP: Record<string, string> = {
-  Ring: 'RING', Earrings: 'EARRINGS', Earring: 'EARRINGS',
-  Pendant: 'PENDANT', Necklace: 'NECKLACE', Bracelet: 'BRACELET',
-  Bangle: 'BANGLE', Cufflink: 'CUFFLINK', Brooch: 'BROOCH', Set: 'SET',
-}
+import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP } from '@/lib/nocodb'
 
 const UID_CONFIG: Record<string, Record<string, { prefix: string; padLen: number }>> = {
   'Lab Diamond': {
