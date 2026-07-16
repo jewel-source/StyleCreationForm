@@ -26,8 +26,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase()
-    const records   = await fetchAll(UID_BASE, uidTableId, 'JSI Style#', `(Category,eq,${catFilter})`)
+  const allRecords = await fetchAll(UID_BASE, uidTableId, 'JSI Style#,Category')
+  const catFilter  = (CATEGORY_MAP[catName] || catName.toUpperCase()).trim().toUpperCase()
+  const records    = allRecords.filter(r =>
+  String(r['Category'] || '').trim().toUpperCase() === catFilter
+  )
 
     const cfg    = UID_CONFIG[stName]?.[catName] ?? { prefix: '', padLen: 4 }
     const prefix = cfg.prefix
