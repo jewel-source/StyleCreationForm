@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP } from '@/lib/nocodb'
 
-const UID_CONFIG: Record<string, Record<string, { prefix: string; padLen: number }>> = {
-  'Lab Diamond': {
-    Ring:     { prefix: 'A', padLen: 0 },
-    Pendant:  { prefix: 'A', padLen: 0 },
-    Earrings: { prefix: 'A', padLen: 0 },
-    Earring:  { prefix: 'A', padLen: 0 },
-    Necklace: { prefix: 'A', padLen: 0 },
-    Bracelet: { prefix: '',  padLen: 4 },
-    Bangle:   { prefix: 'AABG', padLen: 3 },
-    Cufflink: { prefix: 'AAC', padLen: 3 },
-    Brooch:   { prefix: '',  padLen: 4 },
-  },
+// Starting UID number per category
+const START_UID: Record<string, number> = {
+  Ring:      1644,
+  Pendant:   507,
+  Necklace:  447,
+  Earrings:  928,
+  Earring:   928,
+  Bracelet:  241,
+}
+
+// Prefix used in the JSI Style# column (for parsing/matching existing rows)
+const PREFIX: Record<string, string> = {
+  Ring:      'A',
+  Pendant:   'A',
+  Earrings:  'A',
+  Earring:   'A',
+  Necklace:  'A',
+  Bracelet:  '',
+  Bangle:    'AABG',
+  Cufflink:  'AAC',
+  Brooch:    '',
 }
 
 export async function GET(req: NextRequest) {
@@ -25,40 +34,72 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `UID table for ${catName} not configured` }, { status: 404 })
   }
 
+  const startNum = START_UID[catName]
+  if (startNum === undefined) {
+    return NextResponse.json({ error: `Starting UID for ${catName} not configured` }, { status: 404 })
+  }
+
   try {
-  const allRecords = await fetchAll(UID_BASE, uidTableId, 'JSI Style#,Category')
-  const catFilter  = (CATEGORY_MAP[catName] || catName.toUpperCase()).trim().toUpperCase()
-  const records    = allRecords.filter(r =>
-  String(r['Category'] || '').trim().toUpperCase() === catFilter
-  )
+    // Fetch everything, filter in JS to avoid whitespace/casing mismatches in the DB
+    const allRecords = await fetchAll(
+      UID_BASE,
+      uidTableId,
+      'JSI Style#,Category,Vendor,Vendor Style #'
+    )
 
-    const cfg    = UID_CONFIG[stName]?.[catName] ?? { prefix: '', padLen: 4 }
-    const prefix = cfg.prefix
-    let maxNum   = 0
+    const catFilter = (CATEGORY_MAP[catName] || catName.toUpperCase()).trim().toUpperCase()
+    const records = allRecords.filter(r =>
+      String(r['Category'] || '').trim().toUpperCase() === catFilter
+    )
 
-    for (const r of records) {
-      const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
-      let num = 0
-      if (prefix && jsi.startsWith(prefix)) {
-        num = parseInt(jsi.slice(prefix.length)) || 0
-      } else {
-        const m = jsi.match(/(\d+)$/)
-        if (m) num = parseInt(m[1])
-      }
-      if (num > maxNum) maxNum = num
-    }
+    const prefix = PREFIX[catName] ?? ''
 
-    const nextNum = maxNum + 1
-    let displayUID = ''
-    if (prefix === 'A') {
-      displayUID = `A${nextNum}`
-    } else if (prefix) {
-      displayUID = `${prefix}${String(nextNum).padStart(cfg.padLen, '0')}`
+    // Parse each row: extract its UID number and whether it's already used
+    const parsed = records
+      .map(r => {
+        const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
+        let num = 0
+        if (prefix && jsi.startsWith(prefix)) {
+          num = parseInt(jsi.slice(prefix.length)) || 0
+        } else {
+          const m = jsi.match(/(\d+)$/)
+          if (m) num = parseInt(m[1])
+        }
+        const vendor      = String(r['Vendor'] || '').trim()
+        const vendorStyle = String(r['Vendor Style #'] || '').trim()
+        const isFull = vendor !== '' || vendorStyle !== ''
+        return { num, isFull }
+      })
+      .filter(p => p.num > 0)
+
+    // Look for the first unused (empty) slot at or after the starting number
+    const openSlots = parsed
+      .filter(p => p.num >= startNum && !p.isFull)
+      .sort((a, b) => a.num - b.num)
+
+    let nextNum: number
+    let isNewRecord = false
+
+    if (openSlots.length > 0) {
+      // Reuse the lowest-numbered empty slot
+      nextNum = openSlots[0].num
     } else {
-      displayUID = String(nextNum).padStart(cfg.padLen, '0')
+      // No empty slots left -- mint a new UID past the current max
+      const maxNum = parsed.reduce((max, p) => Math.max(max, p.num), startNum - 1)
+      nextNum = maxNum + 1
+      isNewRecord = true
     }
 
-    return NextResponse.json({ nextNum, displayUID, count: records.length })
+    const displayUID = prefix
+      ? `${prefix}${nextNum}`
+      : String(nextNum).padStart(4, '0')
+
+    return NextResponse.json({
+      nextNum,
+      displayUID,
+      isNewRecord,   // true if this UID doesn't exist as a row yet and submit needs to CREATE it
+      count: records.length,
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
