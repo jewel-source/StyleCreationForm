@@ -9,6 +9,10 @@ const START_UID: Record<string, number> = {
   Earrings:  928,
   Earring:   928,
   Bracelet:  241,
+  Bangle: 46,
+  Brooch: 6,
+  Cufflink: 3,
+
 }
 
 export async function GET(req: NextRequest) {

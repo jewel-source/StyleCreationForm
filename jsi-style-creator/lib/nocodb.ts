@@ -36,8 +36,8 @@ export const PREFIX: Record<string, string> = {
   Earring:   'A',
   Necklace:  '',
   Bracelet:  '',
-  Bangle:    'AABG',
-  Cufflink:  'AAC',
+  Bangle:    '',
+  Cufflink:  '',
   Brooch:    '',
 }
 
