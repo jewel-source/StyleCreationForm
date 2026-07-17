@@ -190,6 +190,7 @@ export default function StyleForm() {
     if (!validate()) return
     setSubmitting(true)
     const catName = categories.find(o => String(o.id) === category)?.name || ''
+    const stName  = stoneTypes.find(o => String(o.id) === stoneType)?.name || ''
     const vendorName = vendors.find(o => String(o.id) === vendorId)?.name || ''
     try {
       const res = await fetch('/api/submit', {
@@ -204,6 +205,7 @@ export default function StyleForm() {
           ctw:          ctw || null,
           uidNumber,
           styleNum,
+          stName,
           catName,
           vendorName,
           vendorStyle,

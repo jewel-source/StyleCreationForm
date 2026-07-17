@@ -7,10 +7,9 @@ export async function POST(req: NextRequest) {
     const {
       stoneTypeId, categoryId, metalId, sizeId,
       colorstoneId, ctw, uidNumber, styleNum,
-      catName, vendorName, vendorStyle,
+      catName, stName, vendorName, vendorStyle,
     } = body
 
-    // Server-side required field check (frontend can be bypassed)
     if (!vendorName?.trim() || !vendorStyle?.trim()) {
       return NextResponse.json(
         { error: 'Vendor Name and Vendor Style# are required' },
@@ -23,7 +22,7 @@ export async function POST(req: NextRequest) {
       'Category':   { Id: categoryId },
       'Metal':      { Id: metalId },
       'Size':       { Id: sizeId },
-      'UID':        String(uidNumber).padStart(4, '0'),
+      'UID':        String(uidNumber),
     }
     if (ctw)          payload['CTW']        = parseFloat(ctw)
     if (colorstoneId) payload['Colorstone'] = { Id: parseInt(colorstoneId) }
@@ -32,21 +31,22 @@ export async function POST(req: NextRequest) {
     const styleResult = await styleRes.json()
     if (!styleRes.ok) throw new Error(JSON.stringify(styleResult))
 
-    const uidTableId = UID_TABLES[catName]
+    const uidTableId = UID_TABLES[stName]?.[catName]
     if (uidTableId && styleNum) {
       const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase()
-      const prefix = PREFIX[catName] ?? ''
+      const prefix = PREFIX[stName]?.[catName] ?? ''
       const jsiStyleNumber = prefix
         ? `${prefix}${uidNumber}`
         : String(uidNumber).padStart(4, '0')
 
-      const allUidRows = await fetchAll(UID_BASE, uidTableId, 'Id,JSI Style#')
+      const allUidRows = await fetchAll(UID_BASE, uidTableId, 'Id,JSI Style#,Category')
       const existing = allUidRows.filter(r =>
         String(r['JSI Style#'] || '').trim().toUpperCase() === jsiStyleNumber.toUpperCase()
       )
 
       let uidWriteRes
       if (existing.length > 0) {
+        // Always (re)write Category too, filling it in if it was missing
         uidWriteRes = await patchRow(UID_BASE, uidTableId, existing[0].Id, {
           'Vendor':         vendorName.trim(),
           'Vendor Style #': vendorStyle.trim(),
