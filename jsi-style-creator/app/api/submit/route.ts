@@ -40,9 +40,6 @@ export async function POST(req: NextRequest) {
         ? `${prefix}${uidNumber}`
         : String(uidNumber).padStart(4, '0')
 
-      // Fetch all rows and filter in JS -- avoids whitespace/casing mismatches
-      // from NocoDB's server-side eq filter, and matches on the correctly
-      // formatted style number (prefixed or zero-padded depending on category)
       const allUidRows = await fetchAll(UID_BASE, uidTableId, 'Id,JSI Style#')
       const existing = allUidRows.filter(r =>
         String(r['JSI Style#'] || '').trim().toUpperCase() === jsiStyleNumber.toUpperCase()

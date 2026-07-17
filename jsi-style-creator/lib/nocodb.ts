@@ -12,6 +12,7 @@ export const TBL_CATEGORY   = 'm4cym8kn8kxynzs'
 export const TBL_COLORSTONE = 'm6npmo8juryjkz6'
 export const TBL_METAL      = 'mxbwq6yta71dia1'
 export const TBL_SIZE       = 'mudzx7zipojwm7o'
+export const TBL_VENDOR = 'mshfyzmvvydqpvy'
 
 export const UID_BASE = 'pbe18uecvc3ly66'
 

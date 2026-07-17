@@ -25,6 +25,8 @@ export default function StyleForm() {
   const [metals,      setMetals]      = useState<Option[]>([])
   const [allSizes,    setAllSizes]    = useState<any[]>([])
   const [filteredSizes, setFilteredSizes] = useState<Option[]>([])
+  const [vendors, setVendors] = useState<Option[]>([])
+  const [vendorId, setVendorId] = useState('')
 
   const [stoneType,   setStoneType]   = useState('')
   const [category,    setCategory]    = useState('')
@@ -32,7 +34,6 @@ export default function StyleForm() {
   const [metal,       setMetal]       = useState('')
   const [size,        setSize]        = useState('')
   const [ctw,         setCtw]         = useState('')
-  const [vendorName,  setVendorName]  = useState('')
   const [vendorStyle, setVendorStyle] = useState('')
 
   const [uid,         setUid]         = useState('')
@@ -63,6 +64,7 @@ export default function StyleForm() {
       setColorstones((data.colorstones || []).map((r: any) => toOpt(r, 'Colorstone')))
       setMetals((data.metals || []).map((r: any) => toOpt(r, 'Metal')))
       setAllSizes(data.sizes || [])
+      setVendors((data.vendors || []).map((r: any) => toOpt(r, 'Vendor name')))
       setCategories((data.categories || []).map((r: any) => ({
         id:    r.Id,
         label: r['Categories'] || r['Category'] || `ID ${r.Id}`,
@@ -177,7 +179,7 @@ export default function StyleForm() {
     if (!category)   errs.category  = 'Please select a category'
     if (!metal)      errs.metal     = 'Please select a metal'
     if (!size)       errs.size      = 'Please select a size'
-    if (!vendorName.trim())  errs.vendorName  = 'Vendor Name is required'
+    if (!vendorId)           errs.vendorName  = 'Please select a vendor'
     if (!vendorStyle.trim()) errs.vendorStyle = 'Vendor Style# is required'
     if (!styleValid) errs.style     = `Style # must be 13 chars. Currently: ${styleNum?.length ?? 0}`
     setErrors(errs)
@@ -188,6 +190,7 @@ export default function StyleForm() {
     if (!validate()) return
     setSubmitting(true)
     const catName = categories.find(o => String(o.id) === category)?.name || ''
+    const vendorName = vendors.find(o => String(o.id) === vendorId)?.name || ''
     try {
       const res = await fetch('/api/submit', {
         method: 'POST',
@@ -220,7 +223,7 @@ export default function StyleForm() {
   const resetForm = () => {
     setStoneType(''); setCategory(''); setColorstone('')
     setMetal(''); setSize(''); setCtw('')
-    setVendorName(''); setVendorStyle('')
+    setVendorId(''); setVendorStyle('')
     setUid(''); setUidNumber(null); setUidNote('')
     setErrors({}); setColDisabled(true); setSizeDisabled(false)
     setFilteredSizes([])
@@ -321,9 +324,12 @@ export default function StyleForm() {
         <div className={styles.fieldGroup}>
           <div className={styles.field}>
             <label>Vendor Name <span className={styles.req}>*</span></label>
-            <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)}
-              placeholder="e.g. Omnia" className={errors.vendorName ? styles.inputError : ''} />
-                {errors.vendorName && <span className={styles.errorMsg}>{errors.vendorName}</span>}
+            <select value={vendorId} onChange={e => setVendorId(e.target.value)}
+              className={errors.vendorName ? styles.inputError : ''}>
+              <option value="">Select vendor...</option>
+              {vendors.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            {errors.vendorName && <span className={styles.errorMsg}>{errors.vendorName}</span>}
           </div>
           <div className={styles.field}>
             <label>Vendor Style# <span className={styles.req}>*</span></label>
