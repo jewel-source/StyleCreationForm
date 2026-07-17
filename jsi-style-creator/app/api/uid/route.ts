@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX } from '@/lib/nocodb'
 
-// Starting UID number per category
 const START_UID: Record<string, number> = {
   Ring:      1644,
   Pendant:   507,
@@ -9,10 +8,7 @@ const START_UID: Record<string, number> = {
   Earrings:  928,
   Earring:   928,
   Bracelet:  241,
-  Bangle: 46,
-  Brooch: 6,
-  Cufflink: 3,
-
+  Bangle:    46,
 }
 
 export async function GET(req: NextRequest) {
@@ -31,11 +27,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Fetch everything, filter in JS to avoid whitespace/casing mismatches in the DB
     const allRecords = await fetchAll(
       UID_BASE,
       uidTableId,
-      'JSI Style#,Category,Vendor,Vendor Style #'
+      'Id,JSI Style#,Category,Vendor,Vendor Style #'
     )
 
     const catFilter = (CATEGORY_MAP[catName] || catName.toUpperCase()).trim().toUpperCase()
@@ -45,38 +40,56 @@ export async function GET(req: NextRequest) {
 
     const prefix = PREFIX[catName] ?? ''
 
-    // Parse each row: extract its UID number and whether it's already used
-    const parsed = records
-      .map(r => {
-        const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
-        let num = 0
-        if (prefix && jsi.startsWith(prefix)) {
-          num = parseInt(jsi.slice(prefix.length)) || 0
-        } else {
-          const m = jsi.match(/(\d+)$/)
-          if (m) num = parseInt(m[1])
-        }
-        const vendor      = String(r['Vendor'] || '').trim()
-        const vendorStyle = String(r['Vendor Style #'] || '').trim()
-        const isFull = vendor !== '' || vendorStyle !== ''
-        return { num, isFull }
-      })
-      .filter(p => p.num > 0)
+    // First pass: extract number (or null if blank) and full/empty status,
+    // preserving table row order (NocoDB returns rows in physical order)
+    const rows = records.map(r => {
+      const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
+      const vendor      = String(r['Vendor'] || '').trim()
+      const vendorStyle = String(r['Vendor Style #'] || '').trim()
+      const isFull = vendor !== '' || vendorStyle !== ''
 
-    // Look for the first unused (empty) slot at or after the starting number
+      if (jsi === '') {
+        return { id: r.Id, num: null as number | null, isFull }
+      }
+
+      let num = 0
+      if (prefix && jsi.startsWith(prefix)) {
+        num = parseInt(jsi.slice(prefix.length)) || 0
+      } else {
+        const m = jsi.match(/(\d+)$/)
+        if (m) num = parseInt(m[1])
+      }
+      return { id: r.Id, num: num > 0 ? num : null, isFull }
+    })
+
+    // Second pass: infer the number for blank rows based on their position
+    // between the nearest numbered neighbors (assumes sequential table order)
+    let runningNum = startNum - 1
+    const parsed = rows.map(row => {
+      if (row.num !== null) {
+        runningNum = row.num
+        return { ...row, inferredNum: row.num }
+      } else {
+        runningNum += 1
+        return { ...row, inferredNum: runningNum }
+      }
+    })
+
+    // Find the first open slot at or after the starting number
     const openSlots = parsed
-      .filter(p => p.num >= startNum && !p.isFull)
-      .sort((a, b) => a.num - b.num)
+      .filter(p => p.inferredNum >= startNum && !p.isFull)
+      .sort((a, b) => a.inferredNum - b.inferredNum)
 
     let nextNum: number
     let isNewRecord = false
 
     if (openSlots.length > 0) {
-      // Reuse the lowest-numbered empty slot
-      nextNum = openSlots[0].num
+      nextNum = openSlots[0].inferredNum
+      // isNewRecord stays false if this blank/open row already exists as a record
+      // (submit/route.ts will need to know whether to patch this row by Id,
+      // even though JSI Style# was blank -- see note below)
     } else {
-      // No empty slots left -- mint a new UID past the current max
-      const maxNum = parsed.reduce((max, p) => Math.max(max, p.num), startNum - 1)
+      const maxNum = parsed.reduce((max, p) => Math.max(max, p.inferredNum), startNum - 1)
       nextNum = maxNum + 1
       isNewRecord = true
     }
@@ -88,7 +101,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       nextNum,
       displayUID,
-      isNewRecord,   // true if this UID doesn't exist as a row yet and submit needs to CREATE it
+      isNewRecord,
       count: records.length,
     })
   } catch (e: any) {
