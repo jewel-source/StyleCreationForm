@@ -34,15 +34,15 @@ export async function POST(req: NextRequest) {
     const uidTableId = UID_TABLES[stName]?.[catName]
     if (uidTableId && styleNum) {
       const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase()
-      const prefix = PREFIX[stName]?.[catName] ?? ''
-      const jsiStyleNumber = prefix
-        ? `${prefix}${uidNumber}`
-        : String(uidNumber).padStart(4, '0')
 
       const allUidRows = await fetchAll(UID_BASE, uidTableId, 'Id,JSI Style#,Category')
-      const existing = allUidRows.filter(r =>
-        String(r['JSI Style#'] || '').trim().toUpperCase() === jsiStyleNumber.toUpperCase()
-      )
+
+      const existing = allUidRows.filter(r => {
+        const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
+        const m = jsi.match(/(\d+)$/)
+        const rowNum = m ? parseInt(m[1]) : null
+        return rowNum === uidNumber
+      })
 
       let uidWriteRes
       if (existing.length > 0) {
@@ -54,6 +54,11 @@ export async function POST(req: NextRequest) {
           'Our Style#':     styleNum,
         })
       } else {
+        const prefix = PREFIX[stName]?.[catName] ?? ''
+        const jsiStyleNumber = prefix
+          ? `${prefix}${uidNumber}`
+          : String(uidNumber).padStart(4, '0')
+
         uidWriteRes = await createRow(UID_BASE, uidTableId, {
           'Vendor':         vendorName.trim(),
           'Vendor Style #': vendorStyle.trim(),
