@@ -4,8 +4,12 @@ const BASE_URL = process.env.NOCODB_BASE_URL!
 export const SC_BASE  = 'p5pig2ru4284ft2'
 export const SC_TABLE = 'm2ei89b5zqhr1cu'
 
-export const SUBMIT_BASE  = 'pbz6yuf1ab25wde'
-export const SUBMIT_TABLE = 'mdyd9dhavs9hbi5'
+export const SUBMIT_BASE  = 'p5pig2ru4284ft2'
+export const SUBMIT_TABLE = 'm2ei89b5zqhr1cu'
+
+// Uncomment the below line for testing purpose. (Valid styles will go in the style creation - copy)
+//export const SUBMIT_BASE  = 'pbz6yuf1ab25wde'
+//export const SUBMIT_TABLE = 'mdyd9dhavs9hbi5'
 
 export const TBL_STONE_TYPE = 'mu6pzbj9k7z1ehs'
 export const TBL_CATEGORY   = 'm4cym8kn8kxynzs'
