@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       'Category':   { Id: categoryId },
       'Metal':      { Id: metalId },
       'Size':       { Id: sizeId },
-      'UID':        String(uidNumber),
+      'UID':        String(uidNumber).padStart(4, '0'),
     }
     if (ctw)          payload['CTW']        = parseFloat(ctw)
     if (colorstoneId) payload['Colorstone'] = { Id: parseInt(colorstoneId) }
