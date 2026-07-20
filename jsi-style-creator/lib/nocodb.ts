@@ -48,8 +48,8 @@ export const PREFIX: Record<string, Record<string, string>> = {
   'Lab Diamond': {
     Ring:      'A',
     Pendant:   'A',
-    Earrings:  'A',
-    Earring:   'A',
+    Earrings:  '',
+    Earring:   '',
     Necklace:  '',
     Bracelet:  '',
     Bangle:    'AABG',
