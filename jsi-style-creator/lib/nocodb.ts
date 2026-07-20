@@ -38,7 +38,16 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Anklet:    'mfxzqnhz06ctptb',
     Ring:      'mbzf9ajehhh114u',
     Bracelet:  'm7hnvbybd0tz2n4',
-    // Charm intentionally omitted for now
+  },
+  'Natural Gemstone': {
+    Ring:      'mbw3vld3cz6gim1',
+    Pendant:   'mvv3kpu0vw9jl2j',
+    Necklace:  'm872pf8dqbucnjw',
+    Earrings:  'mxz98uix976bgo9',
+    Earring:   'mxz98uix976bgo9',
+    Cufflink:  'mpru0pidgeih1vy',
+    Brooch:    'mqrhkwx27k2upa3',
+    Bracelet:  'mq15o69vfcjp54o',
   },
 }
 
@@ -66,6 +75,16 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Ring:      '',
     Bracelet:  '',
   },
+  'Natural Gemstone': {
+    Ring:      '',
+    Pendant:   '',
+    Necklace:  '',
+    Earrings:  '',
+    Earring:   '',
+    Cufflink:  '',
+    Brooch:    '',
+    Bracelet:  '',
+  },
 }
 
 // Starting UID number by Stone Type -> Category
@@ -88,6 +107,16 @@ export const START_UID: Record<string, Record<string, number>> = {
     Anklet:    4,
     Ring:      6842,
     Bracelet:  1532,
+  },
+  'Natural Gemstone': {
+    Ring:      7408,
+    Pendant:   2983,
+    Necklace:  740,
+    Earrings:  3272,
+    Earring:   3272,
+    Cufflink:  8,
+    Brooch:    10,
+    Bracelet:  1063,
   },
 }
 
