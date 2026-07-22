@@ -62,8 +62,10 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Necklace: 'ms4esc5pb5eptxo',
     Pendant: 'mla68mkhhoalas8',
     Ring: 'm0dobyiclul0ysu'
-
-  }
+  },
+  'No Stone': {
+    Set: 'mvip9hxmk4fk3mk'
+  },
 }
 
 // Nested by Stone Type -> Category -> prefix used in JSI Style#
@@ -112,7 +114,10 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Brooch:    '',
     Bracelet:  '',
     Bangle:    '',
-  }
+  },
+  'No Stone': {
+    Set: '',
+  },
 }
 
 // Starting UID number by Stone Type -> Category
@@ -155,7 +160,10 @@ export const START_UID: Record<string, Record<string, number>> = {
     Necklace: 14,
     Pendant: 56,
     Ring: 57,
-  }
+  },
+  'No Stone': {
+    Set: 224,
+  },
 }
 
 export const CATEGORY_MAP: Record<string, string> = {
