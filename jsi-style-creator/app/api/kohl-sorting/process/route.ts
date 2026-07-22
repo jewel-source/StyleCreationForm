@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseDscoFile } from '@/lib/kohl-sorting/dsco'
 import { computeSortedPageIndices, extractPdfPages, reorderPdf } from '@/lib/kohl-sorting/pdf'
-import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildStyleWiseSummary, generateWorkbook } from '@/lib/kohl-sorting/dailyFile'
+import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildStyleWiseSummary, generateWorkbook, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
 import { fetchSkuCatalogMap } from '@/lib/kohl-sorting/skuCatalog'
 import { buildShippingCsv } from '@/lib/kohl-sorting/shippingCsv'
 
@@ -32,14 +32,11 @@ export async function POST(req: NextRequest) {
 
     const pdfBuf = Buffer.from(await pdf.arrayBuffer())
     const pages = await extractPdfPages(pdfBuf)
-    const sortedIndices = computeSortedPageIndices(parsedDsco.poOrder, pages)
-    const reordered = await reorderPdf(pdfBuf, sortedIndices)
+    const poOrderedIndices = computeSortedPageIndices(parsedDsco.poOrder, pages)
 
-    const orders = buildOrderGroups(sortedIndices, pages, parsedDsco)
+    const orders = buildOrderGroups(poOrderedIndices, pages, parsedDsco)
     const skuMap = await fetchSkuCatalogMap()
-    const customerByOrder = buildCustomerByOrder(parsedDsco)
-    const processDate = new Date()
-    const { rows, missingUpcs, emptyOrders } = buildDetailRows(orders, skuMap, customerByOrder, startNum, processDate)
+    const { sorted, missingUpcs, emptyOrders } = sortOrdersForFulfillment(orders, skuMap)
 
     if (emptyOrders.length > 0) {
       return NextResponse.json({
@@ -53,6 +50,16 @@ export async function POST(req: NextRequest) {
         missingUpcs,
       }, { status: 422 })
     }
+
+    // Fulfillment order (single-line orders grouped alphabetically by Right
+    // Click Style #, multi-line orders at the end) now drives both the
+    // Daily File row/invoice sequence and the output PDF's page order.
+    const fulfillmentPageIndices = sorted.flatMap(o => o.pageIndices)
+    const reordered = await reorderPdf(pdfBuf, fulfillmentPageIndices)
+
+    const customerByOrder = buildCustomerByOrder(parsedDsco)
+    const processDate = new Date()
+    const rows = buildDetailRows(sorted, skuMap, customerByOrder, startNum, processDate)
 
     const summary = buildStyleWiseSummary(rows)
     const workbookBuf = await generateWorkbook(rows, summary, String(company))

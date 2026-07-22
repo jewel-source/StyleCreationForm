@@ -6,12 +6,16 @@ import type { SkuCatalogEntry } from './skuCatalog'
 export interface OrderGroup {
   orderNo: string
   lineItems: LineItem[]
+  /** 0-based original PDF page indices belonging to this order, in original relative order. */
+  pageIndices: number[]
 }
 
 /**
  * Groups the sorted PDF pages into one entry per order (merging multi-page
- * orders), in the order they first appear in the sorted sequence — this is
- * the sequence Sr#/INV# numbering follows.
+ * orders), in the order they first appear in the DSCO PO-order sequence.
+ * This is just a grouping pass — the actual output sequence (Sr#/INV#
+ * numbering, PDF page order) is decided afterward by
+ * `sortOrdersForFulfillment`.
  *
  * Line items come from the DSCO export when it's the line-item-detail shape
  * (po_number + line_item_upc/qty/cost are richer/more reliable than the PDF
@@ -27,7 +31,7 @@ export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco
     if (gi === undefined) {
       gi = groups.length
       groupIndexByOrder.set(orderNo, gi)
-      groups.push({ orderNo, lineItems: [] })
+      groups.push({ orderNo, lineItems: [], pageIndices: [] })
     }
     return groups[gi]
   }
@@ -45,6 +49,7 @@ export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco
       const page = pages[idx]
       const orderNo = page.orderNo ?? `UNKNOWN_PAGE_${page.pageNo}`
       const group = ensureGroup(orderNo)
+      group.pageIndices.push(idx)
       if (group.lineItems.length > 0) continue // already populated from this order's first page
 
       for (const row of rowsByPo.get(orderNo) ?? []) {
@@ -63,11 +68,61 @@ export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco
     for (const idx of sortedIndices) {
       const page = pages[idx]
       const orderNo = page.orderNo ?? `UNKNOWN_PAGE_${page.pageNo}`
-      ensureGroup(orderNo).lineItems.push(...page.lineItems)
+      const group = ensureGroup(orderNo)
+      group.pageIndices.push(idx)
+      group.lineItems.push(...page.lineItems)
     }
   }
 
   return groups
+}
+
+export interface SortOrdersResult {
+  /** Final fulfillment sequence — empty if blocked by missingUpcs/emptyOrders. */
+  sorted: OrderGroup[]
+  missingUpcs: string[]
+  emptyOrders: string[]
+}
+
+/**
+ * Final fulfillment ordering, replacing DSCO PO order as the sequence that
+ * drives Sr#/INV# numbering and the output PDF's page order: single-line-
+ * item orders are sorted alphabetically by their one line's Right Click
+ * Style # (grouping same-style orders together for efficient picking);
+ * multi-line orders can't be sorted by a single style, so they're appended
+ * at the end, keeping their relative DSCO PO order.
+ */
+export function sortOrdersForFulfillment(
+  orders: OrderGroup[],
+  skuMap: Map<string, SkuCatalogEntry>
+): SortOrdersResult {
+  const emptyOrders: string[] = []
+  const missingUpcs = new Set<string>()
+  const singleLine: { order: OrderGroup; rightClickStyle: string }[] = []
+  const multiLine: OrderGroup[] = []
+
+  for (const order of orders) {
+    if (order.lineItems.length === 0) {
+      emptyOrders.push(order.orderNo)
+      continue
+    }
+    for (const item of order.lineItems) {
+      if (!skuMap.get(item.upc)) missingUpcs.add(item.upc)
+    }
+    if (order.lineItems.length === 1) {
+      const entry = skuMap.get(order.lineItems[0].upc)
+      singleLine.push({ order, rightClickStyle: entry?.rightClickStyleNumber ?? '' })
+    } else {
+      multiLine.push(order)
+    }
+  }
+
+  if (emptyOrders.length > 0 || missingUpcs.size > 0) {
+    return { sorted: [], missingUpcs: [...missingUpcs], emptyOrders }
+  }
+
+  singleLine.sort((a, b) => a.rightClickStyle.localeCompare(b.rightClickStyle))
+  return { sorted: [...singleLine.map(s => s.order), ...multiLine], missingUpcs: [], emptyOrders: [] }
 }
 
 /**
@@ -112,17 +167,14 @@ export interface DailyFileRow {
   rightClickStyleNo: string
 }
 
-export interface BuildDetailRowsResult {
-  rows: DailyFileRow[]
-  missingUpcs: string[]
-  emptyOrders: string[]
-}
-
 /**
  * One row per line item per order, sequential Sr#/INV# per *order* (not per
  * line item — every row belonging to an order repeats the same Sr#/INV#).
  * `Date` is the batch's processing date, repeated on every row of this run
  * (not per-order, not per-line-item). `Price = Cost × Order Pcs.` per spec.
+ *
+ * `orders` must already be validated (no empty orders, no missing UPCs) via
+ * `sortOrdersForFulfillment` — this only builds rows in the given sequence.
  */
 export function buildDetailRows(
   orders: OrderGroup[],
@@ -130,39 +182,32 @@ export function buildDetailRows(
   customerByOrder: Map<string, string>,
   startInvoice: number,
   processDate: Date
-): BuildDetailRowsResult {
+): DailyFileRow[] {
   const rows: DailyFileRow[] = []
-  const missingUpcs = new Set<string>()
-  const emptyOrders: string[] = []
 
   orders.forEach((order, i) => {
-    if (order.lineItems.length === 0) {
-      emptyOrders.push(order.orderNo)
-      return
-    }
     const srNo = i + 1
     const invNo = startInvoice + i
     const customer = customerByOrder.get(order.orderNo) ?? ''
     for (const item of order.lineItems) {
-      const entry = skuMap.get(item.upc)
-      if (!entry) missingUpcs.add(item.upc)
+      const entry = skuMap.get(item.upc)!
       rows.push({
         srNo,
         date: processDate,
         customer,
         orderNo: order.orderNo,
-        jsStyleNo: entry?.styleNumber ?? '',
+        jsStyleNo: entry.styleNumber,
         orderPcs: item.qtyOrd,
-        cost: entry?.cost ?? 0,
-        price: (entry?.cost ?? 0) * item.qtyOrd,
+        cost: entry.cost,
+        price: entry.cost * item.qtyOrd,
         invNo,
         customerSku: item.upc,
-        rightClickStyleNo: entry?.rightClickStyleNumber ?? '',
+        rightClickStyleNo: entry.rightClickStyleNumber,
       })
     }
   })
 
-  return { rows, missingUpcs: [...missingUpcs], emptyOrders }
+  return rows
 }
 
 export interface StyleWiseSummary {
@@ -173,10 +218,12 @@ export interface StyleWiseSummary {
 
 /**
  * Per-style Total Qty + Multiple Line Qty, feeding both Style Wise and
- * Style Wise2. **Confirmed** rule from the spec: group rows by INV # (i.e.
- * by order) — if an order has more than one row, every one of its rows
- * counts toward Multiple Line Qty for its style; single-line orders count
- * only toward Total Qty.
+ * Style Wise2. Grouped and sorted by Right Click Style # (not JS Style #) —
+ * same key the fulfillment sort uses, so the summary lines up with the
+ * Sheet1 row order and the PDF page order. **Confirmed** rule from the
+ * spec: group rows by INV # (i.e. by order) — if an order has more than one
+ * row, every one of its rows counts toward Multiple Line Qty for its style;
+ * single-line orders count only toward Total Qty.
  */
 export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] {
   const rowCountByInv = new Map<number, number>()
@@ -186,16 +233,18 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
 
   const byStyle = new Map<string, StyleWiseSummary>()
   for (const r of rows) {
-    const style = r.jsStyleNo || '(unmatched)'
-    if (!byStyle.has(style)) byStyle.set(style, { style, totalQty: 0, multipleLineQty: 0 })
-    const s = byStyle.get(style)!
+    const key = r.rightClickStyleNo || '(unmatched)'
+    if (!byStyle.has(key)) byStyle.set(key, { style: r.jsStyleNo || '(unmatched)', totalQty: 0, multipleLineQty: 0 })
+    const s = byStyle.get(key)!
     s.totalQty += r.orderPcs
     if ((rowCountByInv.get(r.invNo) ?? 0) > 1) {
       s.multipleLineQty += r.orderPcs
     }
   }
 
-  return [...byStyle.values()].sort((a, b) => a.style.localeCompare(b.style))
+  return [...byStyle.entries()]
+    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+    .map(([, summary]) => summary)
 }
 
 const SHEET1_HEADERS = [
