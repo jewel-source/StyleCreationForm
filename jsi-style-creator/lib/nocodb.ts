@@ -32,6 +32,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Bangle:    'm2txsqct7he087u',
     Cufflink:  'mumel64d3luco2z',
     Brooch:    'm4mppod4okuj6jm',
+    Set: 'mpp2ezkhdbiiznk'
   },
   'Natural Diamond': {
     Earrings:  'mqvtj5mp2yhg954',
@@ -52,7 +53,17 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Cufflink:  'mpru0pidgeih1vy',
     Brooch:    'mqrhkwx27k2upa3',
     Bracelet:  'mq15o69vfcjp54o',
+    Bangle: 'ms0yuqvr7ufpelz',
   },
+  'Lab Gem': {
+    Bracelet: 'mf37b8briionxsz',
+    Earrings: 'mpfwl0wyor2vcyl',
+    Earring: 'mpfwl0wyor2vcyl',
+    Necklace: 'ms4esc5pb5eptxo',
+    Pendant: 'mla68mkhhoalas8',
+    Ring: 'm0dobyiclul0ysu'
+
+  }
 }
 
 // Nested by Stone Type -> Category -> prefix used in JSI Style#
@@ -68,6 +79,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Bangle:    'AABG',
     Cufflink:  'AAC',
     Brooch:    '',
+    Set: 'AA-SET-'
   },
   'Natural Diamond': {
     Earrings:  '',
@@ -88,7 +100,19 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Cufflink:  '',
     Brooch:    '',
     Bracelet:  '',
+    Bangle:    '',
   },
+  'Lab Gem':{
+    Ring:      '',
+    Pendant:   '',
+    Necklace:  '',
+    Earrings:  '',
+    Earring:   '',
+    Cufflink:  '',
+    Brooch:    '',
+    Bracelet:  '',
+    Bangle:    '',
+  }
 }
 
 // Starting UID number by Stone Type -> Category
@@ -97,10 +121,11 @@ export const START_UID: Record<string, Record<string, number>> = {
     Ring:      1644,
     Pendant:   507,
     Necklace:  447,
-    Earrings:  928,
+    Earrings:  940,
     Earring:   928,
     Bracelet:  241,
     Bangle:    46,
+    Set:       36,
   },
   'Natural Diamond': {
     Earrings:  3027,
@@ -121,7 +146,16 @@ export const START_UID: Record<string, Record<string, number>> = {
     Cufflink:  8,
     Brooch:    10,
     Bracelet:  1063,
+    Bangle:    175,
   },
+  'Lab Gem': {
+    Bracelet: 14,
+    Earrings: 37,
+    Earring: 37,
+    Necklace: 14,
+    Pendant: 56,
+    Ring: 57,
+  }
 }
 
 export const CATEGORY_MAP: Record<string, string> = {
