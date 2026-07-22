@@ -1,0 +1,272 @@
+import ExcelJS from 'exceljs'
+import type { ParsedDsco } from './dsco'
+import type { LineItem, PdfPage } from './pdf'
+import type { SkuCatalogEntry } from './skuCatalog'
+
+export interface OrderGroup {
+  orderNo: string
+  lineItems: LineItem[]
+}
+
+/**
+ * Groups the sorted PDF pages into one entry per order (merging multi-page
+ * orders), in the order they first appear in the sorted sequence — this is
+ * the sequence Sr#/INV# numbering follows.
+ *
+ * Line items come from the DSCO export when it's the line-item-detail shape
+ * (po_number + line_item_upc/qty/cost are richer/more reliable than the PDF
+ * heuristic parse); otherwise they come from the PDF's own per-page parse,
+ * since the shipping-import shape carries no line items of its own.
+ */
+export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco: ParsedDsco): OrderGroup[] {
+  const groups: OrderGroup[] = []
+  const groupIndexByOrder = new Map<string, number>()
+
+  const ensureGroup = (orderNo: string): OrderGroup => {
+    let gi = groupIndexByOrder.get(orderNo)
+    if (gi === undefined) {
+      gi = groups.length
+      groupIndexByOrder.set(orderNo, gi)
+      groups.push({ orderNo, lineItems: [] })
+    }
+    return groups[gi]
+  }
+
+  if (dsco.shape === 'line-item-detail') {
+    const rowsByPo = new Map<string, Record<string, any>[]>()
+    for (const row of dsco.rows) {
+      const po = String(row['po_number'] ?? '').trim()
+      if (!po) continue
+      if (!rowsByPo.has(po)) rowsByPo.set(po, [])
+      rowsByPo.get(po)!.push(row)
+    }
+
+    for (const idx of sortedIndices) {
+      const page = pages[idx]
+      const orderNo = page.orderNo ?? `UNKNOWN_PAGE_${page.pageNo}`
+      const group = ensureGroup(orderNo)
+      if (group.lineItems.length > 0) continue // already populated from this order's first page
+
+      for (const row of rowsByPo.get(orderNo) ?? []) {
+        const qty = parseInt(row['line_item_quantity'], 10) || 0
+        group.lineItems.push({
+          skuNum: String(row['line_item_sku'] ?? '').trim(),
+          upc: String(row['line_item_upc'] ?? '').trim(),
+          description: String(row['line_item_title'] ?? '').trim(),
+          qtyOrd: qty,
+          qtySent: qty,
+          unitCost: parseFloat(row['line_item_expected_cost']) || 0,
+        })
+      }
+    }
+  } else {
+    for (const idx of sortedIndices) {
+      const page = pages[idx]
+      const orderNo = page.orderNo ?? `UNKNOWN_PAGE_${page.pageNo}`
+      ensureGroup(orderNo).lineItems.push(...page.lineItems)
+    }
+  }
+
+  return groups
+}
+
+/**
+ * Order # -> Customer name, joined from the DSCO export. Line-item-detail
+ * shape (.xls) carries `ship_first_name`/`ship_last_name` keyed by
+ * `po_number`; shipping-import shape (.csv) carries `ShipToCompanyorName`
+ * keyed by `Reference1`. Either way the join key matches the PDF's `Order #`.
+ */
+export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
+  const map = new Map<string, string>()
+
+  if (dsco.shape === 'line-item-detail') {
+    for (const row of dsco.rows) {
+      const po = String(row['po_number'] ?? '').trim()
+      if (!po || map.has(po)) continue
+      const name = `${String(row['ship_first_name'] ?? '').trim()} ${String(row['ship_last_name'] ?? '').trim()}`.trim()
+      if (name) map.set(po, name)
+    }
+  } else {
+    for (const row of dsco.rows) {
+      const ref = String(row['Reference1'] ?? '').trim()
+      if (!ref || map.has(ref)) continue
+      const name = String(row['ShipToCompanyorName'] ?? '').trim()
+      if (name) map.set(ref, name)
+    }
+  }
+
+  return map
+}
+
+export interface DailyFileRow {
+  srNo: number
+  date: Date
+  customer: string
+  orderNo: string
+  jsStyleNo: string
+  orderPcs: number
+  cost: number
+  price: number
+  invNo: number
+  customerSku: string
+  rightClickStyleNo: string
+}
+
+export interface BuildDetailRowsResult {
+  rows: DailyFileRow[]
+  missingUpcs: string[]
+  emptyOrders: string[]
+}
+
+/**
+ * One row per line item per order, sequential Sr#/INV# per *order* (not per
+ * line item — every row belonging to an order repeats the same Sr#/INV#).
+ * `Date` is the batch's processing date, repeated on every row of this run
+ * (not per-order, not per-line-item). `Price = Cost × Order Pcs.` per spec.
+ */
+export function buildDetailRows(
+  orders: OrderGroup[],
+  skuMap: Map<string, SkuCatalogEntry>,
+  customerByOrder: Map<string, string>,
+  startInvoice: number,
+  processDate: Date
+): BuildDetailRowsResult {
+  const rows: DailyFileRow[] = []
+  const missingUpcs = new Set<string>()
+  const emptyOrders: string[] = []
+
+  orders.forEach((order, i) => {
+    if (order.lineItems.length === 0) {
+      emptyOrders.push(order.orderNo)
+      return
+    }
+    const srNo = i + 1
+    const invNo = startInvoice + i
+    const customer = customerByOrder.get(order.orderNo) ?? ''
+    for (const item of order.lineItems) {
+      const entry = skuMap.get(item.upc)
+      if (!entry) missingUpcs.add(item.upc)
+      rows.push({
+        srNo,
+        date: processDate,
+        customer,
+        orderNo: order.orderNo,
+        jsStyleNo: entry?.styleNumber ?? '',
+        orderPcs: item.qtyOrd,
+        cost: entry?.cost ?? 0,
+        price: (entry?.cost ?? 0) * item.qtyOrd,
+        invNo,
+        customerSku: item.upc,
+        rightClickStyleNo: entry?.rightClickStyleNumber ?? '',
+      })
+    }
+  })
+
+  return { rows, missingUpcs: [...missingUpcs], emptyOrders }
+}
+
+export interface StyleWiseSummary {
+  style: string
+  totalQty: number
+  multipleLineQty: number
+}
+
+/**
+ * Per-style Total Qty + Multiple Line Qty, feeding both Style Wise and
+ * Style Wise2. **Confirmed** rule from the spec: group rows by INV # (i.e.
+ * by order) — if an order has more than one row, every one of its rows
+ * counts toward Multiple Line Qty for its style; single-line orders count
+ * only toward Total Qty.
+ */
+export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] {
+  const rowCountByInv = new Map<number, number>()
+  for (const r of rows) {
+    rowCountByInv.set(r.invNo, (rowCountByInv.get(r.invNo) ?? 0) + 1)
+  }
+
+  const byStyle = new Map<string, StyleWiseSummary>()
+  for (const r of rows) {
+    const style = r.jsStyleNo || '(unmatched)'
+    if (!byStyle.has(style)) byStyle.set(style, { style, totalQty: 0, multipleLineQty: 0 })
+    const s = byStyle.get(style)!
+    s.totalQty += r.orderPcs
+    if ((rowCountByInv.get(r.invNo) ?? 0) > 1) {
+      s.multipleLineQty += r.orderPcs
+    }
+  }
+
+  return [...byStyle.values()].sort((a, b) => a.style.localeCompare(b.style))
+}
+
+const SHEET1_HEADERS = [
+  'Sr #', 'Date', 'Customer', 'Order #', 'JS Style #', 'Order Pcs.', 'Cost', 'Price',
+  'Service', 'Tracking #', 'INV #', 'Customer Sku', 'Right Click Style #',
+]
+
+function styleTitleAndHeader(sheet: ExcelJS.Worksheet, title: string) {
+  const dateRow = sheet.addRow(['Date', new Date().toLocaleDateString('en-US')])
+  dateRow.font = { bold: true }
+  sheet.addRow([title]).font = { bold: true, size: 14 }
+  sheet.addRow([])
+}
+
+export async function generateWorkbook(
+  rows: DailyFileRow[],
+  summary: StyleWiseSummary[],
+  company: string
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  workbook.created = new Date()
+
+  const sheet1 = workbook.addWorksheet('Sheet1')
+  styleTitleAndHeader(sheet1, `${company} Daily File`)
+  const headerRow = sheet1.addRow(SHEET1_HEADERS)
+  headerRow.font = { bold: true }
+  for (const r of rows) {
+    sheet1.addRow([
+      r.srNo, r.date.toLocaleDateString('en-US'), r.customer, r.orderNo, r.jsStyleNo,
+      r.orderPcs, r.cost, r.price, '', '', r.invNo, r.customerSku, r.rightClickStyleNo,
+    ])
+  }
+  sheet1.columns.forEach(col => { col.width = 16 })
+
+  const styleWise = workbook.addWorksheet('Style Wise')
+  styleTitleAndHeader(styleWise, `${company} Style Wise`)
+  const swHeader = styleWise.addRow(['Style', 'Qty'])
+  swHeader.font = { bold: true }
+  let grandTotalQty = 0
+  for (const s of summary) {
+    styleWise.addRow([s.style, s.totalQty])
+    grandTotalQty += s.totalQty
+  }
+  styleWise.addRow(['Grand Total', grandTotalQty]).font = { bold: true }
+
+  styleWise.addRow([])
+  styleWise.addRow(['Multiple Line Pcs.']).font = { bold: true, size: 12 }
+  const mlHeader = styleWise.addRow(['Style', 'Qty'])
+  mlHeader.font = { bold: true }
+  let grandTotalMultiLine = 0
+  for (const s of summary.filter(s => s.multipleLineQty > 0)) {
+    styleWise.addRow([s.style, s.multipleLineQty])
+    grandTotalMultiLine += s.multipleLineQty
+  }
+  styleWise.addRow(['Grand Total', grandTotalMultiLine]).font = { bold: true }
+  styleWise.columns.forEach(col => { col.width = 20 })
+
+  const styleWise2 = workbook.addWorksheet('Style Wise2')
+  styleTitleAndHeader(styleWise2, `${company} Style Wise 2`)
+  const sw2Header = styleWise2.addRow(['Style', 'Total Qty', 'Multiple Line Qty'])
+  sw2Header.font = { bold: true }
+  let sw2TotalQty = 0
+  let sw2MultiLineQty = 0
+  for (const s of summary) {
+    styleWise2.addRow([s.style, s.totalQty, s.multipleLineQty])
+    sw2TotalQty += s.totalQty
+    sw2MultiLineQty += s.multipleLineQty
+  }
+  styleWise2.addRow(['Grand Total', sw2TotalQty, sw2MultiLineQty]).font = { bold: true }
+  styleWise2.columns.forEach(col => { col.width = 20 })
+
+  const arrayBuffer = await workbook.xlsx.writeBuffer()
+  return Buffer.from(arrayBuffer)
+}

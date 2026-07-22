@@ -31,3 +31,7 @@ yarn-error.log*
 # Editor
 .vscode/
 .idea/
+
+CLAUDE.md
+kohl-sorting-spec.md
+.claude/

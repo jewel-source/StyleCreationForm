@@ -20,6 +20,9 @@ export const TBL_VENDOR     = 'mshfyzmvvydqpvy'
 
 export const UID_BASE = 'pbe18uecvc3ly66'
 
+export const SKU_BASE  = 'p9gl3g6ig1d3yhd'
+export const SKU_TABLE = 'm3gou8rh2uou5o3'
+
 // Nested by Stone Type -> Category -> table ID
 export const UID_TABLES: Record<string, Record<string, string>> = {
   'Lab Diamond': {
