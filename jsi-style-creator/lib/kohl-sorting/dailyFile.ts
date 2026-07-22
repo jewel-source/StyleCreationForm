@@ -248,14 +248,103 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
 }
 
 const SHEET1_HEADERS = [
-  'Sr #', 'Date', 'Customer', 'Order #', 'JS Style #', 'Order Pcs.', 'Cost', 'Price',
+  'Sr #', 'Date', 'Customer', 'Order #', 'JS Style #', 'Order Pcs.', 'COST', 'Price',
   'Service', 'Tracking #', 'INV #', 'Customer Sku', 'Right Click Style #',
 ]
+const SHEET1_COLUMN_WIDTHS = [5, 15, 28, 19, 31, 7, 13, 13, 25, 32, 11, 20, 21]
+const ORDER_PCS_COL = 6
 
-function styleTitleAndHeader(sheet: ExcelJS.Worksheet, title: string) {
-  const dateRow = sheet.addRow(['Date', new Date().toLocaleDateString('en-US')])
-  dateRow.font = { bold: true }
-  sheet.addRow([title]).font = { bold: true, size: 14 }
+// Extracted directly from reference/daily-file-empty-template.xlsx's raw OOXML
+// (xl/styles.xml + xl/theme/theme1.xml): title-block fill is theme accent-5
+// (#4BACC6) tinted ~0.8 toward white; title/label text is Times New Roman
+// bold, data rows are Calibri. Column-header row and data cells are NOT
+// filled — only the Date/title banner is, per the real Daily File example.
+const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEEF4' } }
+const GRAY_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBFBFBF' } }
+const TITLE_FONT: Partial<ExcelJS.Font> = { name: 'Times New Roman', bold: true, size: 20 }
+const LABEL_FONT: Partial<ExcelJS.Font> = { name: 'Times New Roman', bold: true, size: 12 }
+const HEADER_FONT: Partial<ExcelJS.Font> = { name: 'Times New Roman', bold: true, size: 12, underline: true }
+const DATA_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 12 }
+const BOLD_DATA_FONT: Partial<ExcelJS.Font> = { name: 'Calibri', size: 12, bold: true }
+const CENTER: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' }
+
+const THIN: Partial<ExcelJS.Border> = { style: 'thin', color: { argb: 'FF000000' } }
+const MEDIUM: Partial<ExcelJS.Border> = { style: 'medium', color: { argb: 'FF000000' } }
+
+const CURRENCY_FMT = '"$"#,##0.00'
+const DATE_FMT = 'm/d/yyyy'
+const TITLE_DATE_FMT = 'd-mmm-yy'
+
+/** Thin grid over a header+data block, upgraded to medium on its outer edges and on column A's right edge (index-column divider), matching the template. */
+function applyBoxBorders(sheet: ExcelJS.Worksheet, firstRow: number, lastRow: number, lastCol: number) {
+  for (let r = firstRow; r <= lastRow; r++) {
+    for (let c = 1; c <= lastCol; c++) {
+      sheet.getRow(r).getCell(c).border = {
+        top: r === firstRow ? MEDIUM : THIN,
+        bottom: r === lastRow ? MEDIUM : THIN,
+        left: c === 1 ? MEDIUM : THIN,
+        right: (c === lastCol || c === 1) ? MEDIUM : THIN,
+      }
+    }
+  }
+}
+
+/** Medium box border around a standalone horizontal run of cells (the Date box, the title banner). */
+function boxRow(sheet: ExcelJS.Worksheet, rowNumber: number, startCol: number, endCol: number) {
+  const row = sheet.getRow(rowNumber)
+  for (let c = startCol; c <= endCol; c++) {
+    row.getCell(c).border = {
+      top: MEDIUM,
+      bottom: MEDIUM,
+      left: c === startCol ? MEDIUM : THIN,
+      right: c === endCol ? MEDIUM : THIN,
+    }
+  }
+}
+
+/**
+ * `Date` label/value box + a merged, centered company-title banner + a blank
+ * spacer row. Both boxed elements are independent, self-contained boxes —
+ * not part of the header+data table's border block below them (matches the
+ * template: the Date/title boxes sit above the table, not flush with it).
+ * `dateBoxCol`/`titleMergeStart`/`titleMergeEnd` let Sheet1 position these
+ * like the real template (offset, not spanning the full row) while sheets
+ * with no template counterpart (Style Wise/Style Wise2) default to
+ * spanning the sheet's full column count.
+ */
+function writeTitleBlock(
+  sheet: ExcelJS.Worksheet,
+  title: string,
+  columnCount: number,
+  opts?: { dateBoxCol?: number; titleMergeStart?: number; titleMergeEnd?: number }
+) {
+  const dateBoxCol = opts?.dateBoxCol ?? 1
+  const titleMergeStart = opts?.titleMergeStart ?? 1
+  const titleMergeEnd = opts?.titleMergeEnd ?? columnCount
+
+  const dateRow = sheet.addRow([])
+  const labelCell = dateRow.getCell(dateBoxCol)
+  const valueCell = dateRow.getCell(dateBoxCol + 1)
+  labelCell.value = 'Date'
+  valueCell.value = new Date()
+  labelCell.font = LABEL_FONT
+  valueCell.font = LABEL_FONT
+  valueCell.numFmt = TITLE_DATE_FMT
+  labelCell.alignment = CENTER
+  valueCell.alignment = CENTER
+  labelCell.fill = HEADER_FILL
+  valueCell.fill = HEADER_FILL
+  boxRow(sheet, dateRow.number, dateBoxCol, dateBoxCol + 1)
+
+  const titleRow = sheet.addRow([])
+  const titleCell = titleRow.getCell(titleMergeStart)
+  titleCell.value = title
+  titleCell.font = TITLE_FONT
+  titleCell.alignment = CENTER
+  sheet.mergeCells(titleRow.number, titleMergeStart, titleRow.number, titleMergeEnd)
+  for (let c = titleMergeStart; c <= titleMergeEnd; c++) titleRow.getCell(c).fill = HEADER_FILL
+  boxRow(sheet, titleRow.number, titleMergeStart, titleMergeEnd)
+
   sheet.addRow([])
 }
 
@@ -267,54 +356,105 @@ export async function generateWorkbook(
   const workbook = new ExcelJS.Workbook()
   workbook.created = new Date()
 
+  // Sheet1 — Date box + title banner positioned like the real template
+  // (offset over columns I:J and C:J respectively, not spanning A:M).
   const sheet1 = workbook.addWorksheet('Sheet1')
-  styleTitleAndHeader(sheet1, `${company} Daily File`)
+  sheet1.views = [{ showGridLines: false }]
+  writeTitleBlock(sheet1, `${company}.COM`, SHEET1_HEADERS.length, {
+    dateBoxCol: 9, titleMergeStart: 3, titleMergeEnd: 10,
+  })
   const headerRow = sheet1.addRow(SHEET1_HEADERS)
-  headerRow.font = { bold: true }
+  headerRow.font = HEADER_FONT
+  headerRow.eachCell(cell => { cell.alignment = { ...CENTER, wrapText: true } })
+
   for (const r of rows) {
-    sheet1.addRow([
-      r.srNo, r.date.toLocaleDateString('en-US'), r.customer, r.orderNo, r.jsStyleNo,
+    const row = sheet1.addRow([
+      r.srNo, r.date, r.customer, r.orderNo, r.jsStyleNo,
       r.orderPcs, r.cost, r.price, '', '', r.invNo, r.customerSku, r.rightClickStyleNo,
     ])
+    row.font = DATA_FONT
+    row.eachCell(cell => { cell.alignment = CENTER })
+    row.getCell(2).numFmt = DATE_FMT
+    row.getCell(7).numFmt = CURRENCY_FMT
+    row.getCell(8).numFmt = CURRENCY_FMT
+    row.getCell(ORDER_PCS_COL).fill = GRAY_FILL
   }
-  sheet1.columns.forEach(col => { col.width = 16 })
+  applyBoxBorders(sheet1, headerRow.number, sheet1.lastRow!.number, SHEET1_HEADERS.length)
+  SHEET1_COLUMN_WIDTHS.forEach((w, i) => { sheet1.getColumn(i + 1).width = w })
 
+  // Style Wise
   const styleWise = workbook.addWorksheet('Style Wise')
-  styleTitleAndHeader(styleWise, `${company} Style Wise`)
+  styleWise.views = [{ showGridLines: false }]
+  writeTitleBlock(styleWise, `${company} Style Wise`, 2)
   const swHeader = styleWise.addRow(['Style', 'Qty'])
-  swHeader.font = { bold: true }
+  swHeader.font = HEADER_FONT
+  swHeader.eachCell(cell => { cell.alignment = CENTER })
+
   let grandTotalQty = 0
   for (const s of summary) {
-    styleWise.addRow([s.style, s.totalQty])
+    const row = styleWise.addRow([s.style, s.totalQty])
+    row.font = DATA_FONT
+    row.eachCell(cell => { cell.alignment = CENTER })
     grandTotalQty += s.totalQty
   }
-  styleWise.addRow(['Grand Total', grandTotalQty]).font = { bold: true }
+  const swTotalRow = styleWise.addRow(['Grand Total', grandTotalQty])
+  swTotalRow.font = BOLD_DATA_FONT
+  swTotalRow.eachCell(cell => { cell.alignment = CENTER })
+  applyBoxBorders(styleWise, swHeader.number, swTotalRow.number, 2)
 
   styleWise.addRow([])
-  styleWise.addRow(['Multiple Line Pcs.']).font = { bold: true, size: 12 }
+  const mlLabelRow = styleWise.addRow(['Multiple Line Pcs.'])
+  mlLabelRow.getCell(1).font = LABEL_FONT
+  mlLabelRow.getCell(1).alignment = CENTER
+  styleWise.mergeCells(mlLabelRow.number, 1, mlLabelRow.number, 2)
+  mlLabelRow.getCell(1).fill = HEADER_FILL
+  mlLabelRow.getCell(2).fill = HEADER_FILL
+  boxRow(styleWise, mlLabelRow.number, 1, 2)
+
   const mlHeader = styleWise.addRow(['Style', 'Qty'])
-  mlHeader.font = { bold: true }
+  mlHeader.font = HEADER_FONT
+  mlHeader.eachCell(cell => { cell.alignment = CENTER })
+
   let grandTotalMultiLine = 0
   for (const s of summary.filter(s => s.multipleLineQty > 0)) {
-    styleWise.addRow([s.style, s.multipleLineQty])
+    const row = styleWise.addRow([s.style, s.multipleLineQty])
+    row.font = DATA_FONT
+    row.eachCell(cell => { cell.alignment = CENTER })
     grandTotalMultiLine += s.multipleLineQty
   }
-  styleWise.addRow(['Grand Total', grandTotalMultiLine]).font = { bold: true }
-  styleWise.columns.forEach(col => { col.width = 20 })
+  const mlTotalRow = styleWise.addRow(['Grand Total', grandTotalMultiLine])
+  mlTotalRow.font = BOLD_DATA_FONT
+  mlTotalRow.eachCell(cell => { cell.alignment = CENTER })
+  applyBoxBorders(styleWise, mlHeader.number, mlTotalRow.number, 2)
 
+  styleWise.getColumn(1).width = 24
+  styleWise.getColumn(2).width = 12
+
+  // Style Wise2
   const styleWise2 = workbook.addWorksheet('Style Wise2')
-  styleTitleAndHeader(styleWise2, `${company} Style Wise 2`)
+  styleWise2.views = [{ showGridLines: false }]
+  writeTitleBlock(styleWise2, `${company} Style Wise 2`, 3)
   const sw2Header = styleWise2.addRow(['Style', 'Total Qty', 'Multiple Line Qty'])
-  sw2Header.font = { bold: true }
+  sw2Header.font = HEADER_FONT
+  sw2Header.eachCell(cell => { cell.alignment = { ...CENTER, wrapText: true } })
+
   let sw2TotalQty = 0
   let sw2MultiLineQty = 0
   for (const s of summary) {
-    styleWise2.addRow([s.style, s.totalQty, s.multipleLineQty])
+    const row = styleWise2.addRow([s.style, s.totalQty, s.multipleLineQty])
+    row.font = DATA_FONT
+    row.eachCell(cell => { cell.alignment = CENTER })
     sw2TotalQty += s.totalQty
     sw2MultiLineQty += s.multipleLineQty
   }
-  styleWise2.addRow(['Grand Total', sw2TotalQty, sw2MultiLineQty]).font = { bold: true }
-  styleWise2.columns.forEach(col => { col.width = 20 })
+  const sw2TotalRow = styleWise2.addRow(['Grand Total', sw2TotalQty, sw2MultiLineQty])
+  sw2TotalRow.font = BOLD_DATA_FONT
+  sw2TotalRow.eachCell(cell => { cell.alignment = CENTER })
+  applyBoxBorders(styleWise2, sw2Header.number, sw2TotalRow.number, 3)
+
+  styleWise2.getColumn(1).width = 24
+  styleWise2.getColumn(2).width = 14
+  styleWise2.getColumn(3).width = 18
 
   const arrayBuffer = await workbook.xlsx.writeBuffer()
   return Buffer.from(arrayBuffer)
