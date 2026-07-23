@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const summary = buildStyleWiseSummary(rows)
     const workbookBuf = await generateWorkbook(rows, summary, String(company))
-    const shippingCsv = buildShippingCsv(parsedDsco)
+    const shippingCsv = buildShippingCsv(parsedDsco, String(company))
 
     const datestamp = new Date().toISOString().slice(0, 10)
     return NextResponse.json({
