@@ -33,8 +33,23 @@ async function ensureCanvasPolyfills() {
   ;(globalThis as any).Path2D = canvas.Path2D
 }
 
+// pdfjs-dist's Node "fake worker" falls back to a runtime-constructed
+// `import(this.workerSrc)` to load pdf.worker.mjs, which isn't a static
+// string literal a bundler/file-tracer can follow — it gets dropped from
+// Vercel's deployed function. pdfjs-dist checks `globalThis.pdfjsWorker`
+// first though, so importing the worker ourselves (a real static specifier,
+// traced the same way pdf.mjs itself is) and setting that global skips the
+// broken fallback path entirely.
+async function ensurePdfWorker() {
+  if ((globalThis as any).pdfjsWorker) return
+  // @ts-expect-error - pdfjs-dist ships no type declarations for this entry point
+  const pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
+  ;(globalThis as any).pdfjsWorker = pdfjsWorker
+}
+
 async function loadPdfjs() {
   await ensureCanvasPolyfills()
+  await ensurePdfWorker()
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
   return pdfjsLib
 }
