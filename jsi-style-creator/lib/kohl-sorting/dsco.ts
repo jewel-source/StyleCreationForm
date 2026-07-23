@@ -13,6 +13,17 @@ export interface ParsedDsco {
 const SHIPPING_IMPORT_MARKER = 'Reference1'
 const LINE_ITEM_DETAIL_MARKER = 'po_number'
 
+/**
+ * Reads a DSCO row field, trimmed. DSCO's export writes the literal text
+ * "null" into some genuinely-blank cells (confirmed 2026-07-23 against a
+ * real file — e.g. a blank `ship_address_2`) instead of leaving them empty,
+ * so that gets normalized to '' too.
+ */
+export function dscoField(row: Record<string, any>, key: string): string {
+  const s = String(row[key] ?? '').trim()
+  return s.toLowerCase() === 'null' ? '' : s
+}
+
 export function parseDscoFile(buf: Buffer, filename: string): ParsedDsco {
   const workbook = XLSX.read(buf, { type: 'buffer' })
   const sheetName = workbook.SheetNames[0]

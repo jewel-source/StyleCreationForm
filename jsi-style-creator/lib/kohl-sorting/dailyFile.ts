@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import type { ParsedDsco } from './dsco'
+import { dscoField, type ParsedDsco } from './dsco'
 import type { LineItem, PdfPage } from './pdf'
 import type { SkuCatalogEntry } from './skuCatalog'
 
@@ -136,16 +136,16 @@ export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
 
   if (dsco.shape === 'line-item-detail') {
     for (const row of dsco.rows) {
-      const po = String(row['po_number'] ?? '').trim()
+      const po = dscoField(row, 'po_number')
       if (!po || map.has(po)) continue
-      const name = `${String(row['ship_first_name'] ?? '').trim()} ${String(row['ship_last_name'] ?? '').trim()}`.trim()
+      const name = `${dscoField(row, 'ship_first_name')} ${dscoField(row, 'ship_last_name')}`.trim()
       if (name) map.set(po, name)
     }
   } else {
     for (const row of dsco.rows) {
-      const ref = String(row['Reference1'] ?? '').trim()
+      const ref = dscoField(row, 'Reference1')
       if (!ref || map.has(ref)) continue
-      const name = String(row['ShipToCompanyorName'] ?? '').trim()
+      const name = dscoField(row, 'ShipToCompanyorName')
       if (name) map.set(ref, name)
     }
   }
@@ -164,9 +164,9 @@ export function buildServiceByOrder(dsco: ParsedDsco): Map<string, string> {
   const poField = dsco.shape === 'line-item-detail' ? 'po_number' : 'Reference1'
 
   for (const row of dsco.rows) {
-    const po = String(row[poField] ?? '').trim()
+    const po = dscoField(row, poField)
     if (!po || map.has(po)) continue
-    const service = String(row['shipping_service_level_code'] ?? '').trim()
+    const service = dscoField(row, 'shipping_service_level_code')
     if (service) map.set(po, service)
   }
 
