@@ -189,10 +189,13 @@ export interface DailyFileRow {
 }
 
 /**
- * One row per line item per order, sequential Sr#/INV# per *order* (not per
- * line item — every row belonging to an order repeats the same Sr#/INV#).
- * `Date` is the batch's processing date, repeated on every row of this run
- * (not per-order, not per-line-item). `Price = Cost × Order Pcs.` per spec.
+ * One row per line item per order, sequential Sr# per *order* (not per line
+ * item — every row belonging to an order repeats the same Sr#). `INV #` is
+ * NOT per-order — it's a single invoice number for the whole file, supplied
+ * by the team and repeated on every row (confirmed 2026-07-23; there is no
+ * relationship between invoice number and order number). `Date` is the
+ * batch's processing date, repeated on every row of this run (not per-order,
+ * not per-line-item). `Price = Cost × Order Pcs.` per spec.
  *
  * `orders` must already be validated (no empty orders, no missing UPCs) via
  * `sortOrdersForFulfillment` — this only builds rows in the given sequence.
@@ -202,14 +205,14 @@ export function buildDetailRows(
   skuMap: Map<string, SkuCatalogEntry>,
   customerByOrder: Map<string, string>,
   serviceByOrder: Map<string, string>,
-  startInvoice: number,
+  invoiceNo: number,
   processDate: Date
 ): DailyFileRow[] {
   const rows: DailyFileRow[] = []
 
   orders.forEach((order, i) => {
     const srNo = i + 1
-    const invNo = startInvoice + i
+    const invNo = invoiceNo
     const customer = customerByOrder.get(order.orderNo) ?? ''
     const service = serviceByOrder.get(order.orderNo) ?? ''
     for (const item of order.lineItems) {
@@ -245,14 +248,16 @@ export interface StyleWiseSummary {
  * Style Wise2. Grouped and sorted by Right Click Style # (not JS Style #) —
  * same key the fulfillment sort uses, so the summary lines up with the
  * Sheet1 row order and the PDF page order. **Confirmed** rule from the
- * spec: group rows by INV # (i.e. by order) — if an order has more than one
- * row, every one of its rows counts toward Multiple Line Qty for its style;
- * single-line orders count only toward Total Qty.
+ * spec: group rows by order (originally described as "by INV #", but INV #
+ * is now a single file-wide value rather than per-order — `Sr #` is the
+ * per-order-unique key instead) — if an order has more than one row, every
+ * one of its rows counts toward Multiple Line Qty for its style; single-line
+ * orders count only toward Total Qty.
  */
 export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] {
-  const rowCountByInv = new Map<number, number>()
+  const rowCountBySr = new Map<number, number>()
   for (const r of rows) {
-    rowCountByInv.set(r.invNo, (rowCountByInv.get(r.invNo) ?? 0) + 1)
+    rowCountBySr.set(r.srNo, (rowCountBySr.get(r.srNo) ?? 0) + 1)
   }
 
   const byStyle = new Map<string, StyleWiseSummary>()
@@ -261,7 +266,7 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
     if (!byStyle.has(key)) byStyle.set(key, { style: r.jsStyleNo || '(unmatched)', totalQty: 0, multipleLineQty: 0 })
     const s = byStyle.get(key)!
     s.totalQty += r.orderPcs
-    if ((rowCountByInv.get(r.invNo) ?? 0) > 1) {
+    if ((rowCountBySr.get(r.srNo) ?? 0) > 1) {
       s.multipleLineQty += r.orderPcs
     }
   }
