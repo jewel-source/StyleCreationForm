@@ -20,7 +20,21 @@ export interface PdfPage {
   lineItems: LineItem[]
 }
 
+// pdfjs-dist's own Node-detection shim tries to `require("@napi-rs/canvas")`
+// at module-load time to polyfill DOMMatrix/Path2D, but that internal
+// require (built via `process.getBuiltinModule("module").createRequire`)
+// doesn't resolve correctly when the module is loaded through Next/Turbopack's
+// `serverExternalPackages` loader — so we polyfill the globals ourselves
+// first, via a normal import(), which Turbopack handles fine.
+async function ensureCanvasPolyfills() {
+  if (typeof (globalThis as any).DOMMatrix !== 'undefined') return
+  const canvas = await import('@napi-rs/canvas')
+  ;(globalThis as any).DOMMatrix = canvas.DOMMatrix
+  ;(globalThis as any).Path2D = canvas.Path2D
+}
+
 async function loadPdfjs() {
+  await ensureCanvasPolyfills()
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
   return pdfjsLib
 }
