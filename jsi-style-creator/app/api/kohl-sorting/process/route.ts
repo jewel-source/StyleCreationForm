@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseDscoFile } from '@/lib/kohl-sorting/dsco'
 import { computeSortedPageIndices, extractPdfPages, reorderPdf } from '@/lib/kohl-sorting/pdf'
-import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildStyleWiseSummary, generateWorkbook, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
+import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildServiceByOrder, buildStyleWiseSummary, generateWorkbook, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
 import { fetchSkuCatalogMap } from '@/lib/kohl-sorting/skuCatalog'
 import { buildShippingCsv } from '@/lib/kohl-sorting/shippingCsv'
 
@@ -58,8 +58,9 @@ export async function POST(req: NextRequest) {
     const reordered = await reorderPdf(pdfBuf, fulfillmentPageIndices)
 
     const customerByOrder = buildCustomerByOrder(parsedDsco)
+    const serviceByOrder = buildServiceByOrder(parsedDsco)
     const processDate = new Date()
-    const rows = buildDetailRows(sorted, skuMap, customerByOrder, startNum, processDate)
+    const rows = buildDetailRows(sorted, skuMap, customerByOrder, serviceByOrder, startNum, processDate)
 
     const summary = buildStyleWiseSummary(rows)
     const workbookBuf = await generateWorkbook(rows, summary, String(company))

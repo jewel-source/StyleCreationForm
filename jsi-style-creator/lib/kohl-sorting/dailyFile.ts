@@ -153,6 +153,26 @@ export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
   return map
 }
 
+/**
+ * Order # -> Service, joined from the DSCO export's `shipping_service_level_code`
+ * column. Same po-field-per-shape join as `buildCustomerByOrder`; falls back to
+ * blank if the row has no value for it (e.g. shipping-import shape rows that
+ * don't carry this field).
+ */
+export function buildServiceByOrder(dsco: ParsedDsco): Map<string, string> {
+  const map = new Map<string, string>()
+  const poField = dsco.shape === 'line-item-detail' ? 'po_number' : 'Reference1'
+
+  for (const row of dsco.rows) {
+    const po = String(row[poField] ?? '').trim()
+    if (!po || map.has(po)) continue
+    const service = String(row['shipping_service_level_code'] ?? '').trim()
+    if (service) map.set(po, service)
+  }
+
+  return map
+}
+
 export interface DailyFileRow {
   srNo: number
   date: Date
@@ -162,6 +182,7 @@ export interface DailyFileRow {
   orderPcs: number
   cost: number
   price: number
+  service: string
   invNo: number
   customerSku: string
   rightClickStyleNo: string
@@ -180,6 +201,7 @@ export function buildDetailRows(
   orders: OrderGroup[],
   skuMap: Map<string, SkuCatalogEntry>,
   customerByOrder: Map<string, string>,
+  serviceByOrder: Map<string, string>,
   startInvoice: number,
   processDate: Date
 ): DailyFileRow[] {
@@ -189,6 +211,7 @@ export function buildDetailRows(
     const srNo = i + 1
     const invNo = startInvoice + i
     const customer = customerByOrder.get(order.orderNo) ?? ''
+    const service = serviceByOrder.get(order.orderNo) ?? ''
     for (const item of order.lineItems) {
       const entry = skuMap.get(item.upc)!
       rows.push({
@@ -200,6 +223,7 @@ export function buildDetailRows(
         orderPcs: item.qtyOrd,
         cost: entry.cost,
         price: entry.cost * item.qtyOrd,
+        service,
         invNo,
         customerSku: item.upc,
         rightClickStyleNo: entry.rightClickStyleNumber,
@@ -370,7 +394,7 @@ export async function generateWorkbook(
   for (const r of rows) {
     const row = sheet1.addRow([
       r.srNo, r.date, r.customer, r.orderNo, r.jsStyleNo,
-      r.orderPcs, r.cost, r.price, '', '', r.invNo, r.customerSku, r.rightClickStyleNo,
+      r.orderPcs, r.cost, r.price, r.service, '', r.invNo, r.customerSku, r.rightClickStyleNo,
     ])
     row.font = DATA_FONT
     row.eachCell(cell => { cell.alignment = CENTER })
