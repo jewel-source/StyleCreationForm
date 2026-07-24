@@ -51,43 +51,49 @@ const TP_INFO_BY_COMPANY: Record<string, Record<string, string>> = {
 }
 
 /**
- * Pass-through of the shipping-import-shape columns when that's the
- * uploaded shape. If the line-item-detail shape was uploaded instead
- * (one row per line item, many rows per PO), collapse to one shipment row
- * per distinct PO (first occurrence, same order as `dsco.poOrder`) and map
- * the fields confirmed above, plus the company's fixed TP* info; anything
- * with no confirmed source stays blank, matching legacy behavior for those
- * specific fields.
+ * Builds the shipping-import CSV: exactly one row per order/PO (never one
+ * row per line item — an order with multiple SKUs still produces a single
+ * package row here, unlike the Daily File's per-line-item rows), emitted in
+ * `orderedPoNumbers` — the *same* fulfillment sequence used for the Daily
+ * File (from `sortOrdersForFulfillment`), not `dsco.poOrder`'s raw
+ * PO-first-occurrence order and not the DSCO export's raw row order.
+ *
+ * Collapses to one row per PO by keeping each PO's first-occurrence row
+ * (both shapes can carry multiple rows per PO — shipping-import shape isn't
+ * guaranteed pre-collapsed either). Pass-through of the shipping-import-shape
+ * columns when that's the uploaded shape; if the line-item-detail shape was
+ * uploaded instead, map the fields confirmed above plus the company's fixed
+ * TP* info — anything with no confirmed source stays blank, matching legacy
+ * behavior for those specific fields.
  */
-export function buildShippingCsv(dsco: ParsedDsco, company: string): string {
+export function buildShippingCsv(dsco: ParsedDsco, orderedPoNumbers: string[], company: string): string {
   const lines = [SHIPPING_IMPORT_COLUMNS.map(csvEscape).join(',')]
   const tpInfo = TP_INFO_BY_COMPANY[company] ?? {}
+  const poField = dsco.shape === 'shipping-import' ? 'Reference1' : 'po_number'
 
-  if (dsco.shape === 'shipping-import') {
-    for (const row of dsco.rows) {
-      lines.push(SHIPPING_IMPORT_COLUMNS.map(col => csvEscape(row[col])).join(','))
-    }
-  } else {
-    const rowByPo = new Map<string, Record<string, any>>()
-    for (const row of dsco.rows) {
-      const po = dscoField(row, 'po_number')
-      if (!po || rowByPo.has(po)) continue
-      rowByPo.set(po, row)
-    }
+  const rowByPo = new Map<string, Record<string, any>>()
+  for (const row of dsco.rows) {
+    const po = dscoField(row, poField)
+    if (!po || rowByPo.has(po)) continue
+    rowByPo.set(po, row)
+  }
 
-    for (const po of dsco.poOrder) {
-      const row = rowByPo.get(po) ?? {}
-      const line = SHIPPING_IMPORT_COLUMNS.map(col => {
-        if (col === 'Reference1') return csvEscape(po)
-        if (col === 'ShipToCompanyorName') {
-          return csvEscape(`${dscoField(row, 'ship_first_name')} ${dscoField(row, 'ship_last_name')}`.trim())
-        }
-        if (col in tpInfo) return csvEscape(tpInfo[col])
-        const mapped = LINE_ITEM_DETAIL_FIELD_MAP[col]
-        return mapped ? csvEscape(dscoField(row, mapped)) : ''
-      })
-      lines.push(line.join(','))
-    }
+  for (const po of orderedPoNumbers) {
+    const row = rowByPo.get(po)
+    if (!row) continue
+
+    const line = dsco.shape === 'shipping-import'
+      ? SHIPPING_IMPORT_COLUMNS.map(col => csvEscape(row[col]))
+      : SHIPPING_IMPORT_COLUMNS.map(col => {
+          if (col === 'Reference1') return csvEscape(po)
+          if (col === 'ShipToCompanyorName') {
+            return csvEscape(`${dscoField(row, 'ship_first_name')} ${dscoField(row, 'ship_last_name')}`.trim())
+          }
+          if (col in tpInfo) return csvEscape(tpInfo[col])
+          const mapped = LINE_ITEM_DETAIL_FIELD_MAP[col]
+          return mapped ? csvEscape(dscoField(row, mapped)) : ''
+        })
+    lines.push(line.join(','))
   }
 
   return lines.join('\r\n') + '\r\n'
