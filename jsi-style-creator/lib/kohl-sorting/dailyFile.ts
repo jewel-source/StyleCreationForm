@@ -186,6 +186,51 @@ export interface DailyFileRow {
   invNo: number
   customerSku: string
   rightClickStyleNo: string
+  trackingNo: string
+}
+
+/**
+ * Cross-checks each order's line items against the Inventory file's Balance
+ * On Hand (keyed by JS Style #), consuming a running balance as orders are
+ * processed in fulfillment order — orders later in the sequence see the
+ * balance already reduced by earlier orders in this batch competing for the
+ * same style, so a later order can be flagged even when an earlier one for
+ * the same style wasn't. An order is flagged negative-stock if subtracting
+ * any of its line items' quantity drives that style's running balance
+ * below 0 — an order that exactly uses up the last piece (balance lands on
+ * exactly 0) is a normal, fulfillable order and is NOT flagged; only
+ * demand that exceeds what's left is. A style with no Inventory-file entry
+ * is treated as unconstrained (not flagged) — the file isn't guaranteed to
+ * cover every style.
+ *
+ * Flagged orders are moved to the bottom of the returned sequence (relative
+ * order preserved within both the kept and flagged groups), since this
+ * return value drives Sr#/INV# numbering, the output PDF's page order, and
+ * (via the caller excluding `negativeStockOrders`) the shipping-import CSV.
+ */
+export function reorderForNegativeStock(
+  orders: OrderGroup[],
+  skuMap: Map<string, SkuCatalogEntry>,
+  balanceByStyle: Map<string, number>
+): { reordered: OrderGroup[]; negativeStockOrders: Set<string> } {
+  const runningBalance = new Map(balanceByStyle)
+  const negativeStockOrders = new Set<string>()
+
+  for (const order of orders) {
+    let flagged = false
+    for (const item of order.lineItems) {
+      const style = skuMap.get(item.upc)?.styleNumber
+      if (!style || !runningBalance.has(style)) continue
+      const remaining = runningBalance.get(style)! - item.qtyOrd
+      runningBalance.set(style, remaining)
+      if (remaining < 0) flagged = true
+    }
+    if (flagged) negativeStockOrders.add(order.orderNo)
+  }
+
+  const kept = orders.filter(o => !negativeStockOrders.has(o.orderNo))
+  const flagged = orders.filter(o => negativeStockOrders.has(o.orderNo))
+  return { reordered: [...kept, ...flagged], negativeStockOrders }
 }
 
 /**
@@ -195,7 +240,10 @@ export interface DailyFileRow {
  * (not per-order, not per-line-item). `Price = Cost × Order Pcs.` per spec.
  *
  * `orders` must already be validated (no empty orders, no missing UPCs) via
- * `sortOrdersForFulfillment` — this only builds rows in the given sequence.
+ * `sortOrdersForFulfillment` — this only builds rows in the given sequence
+ * (typically `reorderForNegativeStock`'s output, applied on top of that).
+ * `negativeStockOrders` (from `reorderForNegativeStock`) writes the literal
+ * "Negative Stock" into every row's Tracking # for a flagged order.
  */
 export function buildDetailRows(
   orders: OrderGroup[],
@@ -203,7 +251,8 @@ export function buildDetailRows(
   customerByOrder: Map<string, string>,
   serviceByOrder: Map<string, string>,
   startInvoice: number,
-  processDate: Date
+  processDate: Date,
+  negativeStockOrders: Set<string> = new Set()
 ): DailyFileRow[] {
   const rows: DailyFileRow[] = []
 
@@ -212,6 +261,7 @@ export function buildDetailRows(
     const invNo = startInvoice + i
     const customer = customerByOrder.get(order.orderNo) ?? ''
     const service = serviceByOrder.get(order.orderNo) ?? ''
+    const trackingNo = negativeStockOrders.has(order.orderNo) ? 'Negative Stock' : ''
     for (const item of order.lineItems) {
       const entry = skuMap.get(item.upc)!
       rows.push({
@@ -227,6 +277,7 @@ export function buildDetailRows(
         invNo,
         customerSku: item.upc,
         rightClickStyleNo: entry.rightClickStyleNumber,
+        trackingNo,
       })
     }
   })
@@ -395,7 +446,7 @@ export async function generateWorkbook(
   for (const r of rows) {
     const row = sheet1.addRow([
       r.srNo, r.date, r.customer, r.orderNo, r.jsStyleNo,
-      r.orderPcs, r.cost, r.price, r.service, '', r.invNo, r.customerSku, r.rightClickStyleNo,
+      r.orderPcs, r.cost, r.price, r.service, r.trackingNo, r.invNo, r.customerSku, r.rightClickStyleNo,
     ])
     row.font = DATA_FONT
     row.eachCell(cell => { cell.alignment = CENTER })

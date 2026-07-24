@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseDscoFile } from '@/lib/kohl-sorting/dsco'
 import { computeSortedPageIndices, extractPdfPages, reorderPdf } from '@/lib/kohl-sorting/pdf'
-import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildServiceByOrder, buildStyleWiseSummary, generateWorkbook, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
+import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildServiceByOrder, buildStyleWiseSummary, generateWorkbook, reorderForNegativeStock, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
+import { parseInventoryFile } from '@/lib/kohl-sorting/inventory'
 import { fetchSkuCatalogMap } from '@/lib/kohl-sorting/skuCatalog'
 import { buildShippingCsv } from '@/lib/kohl-sorting/shippingCsv'
 
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
     const company     = formData.get('company')
     const pdf         = formData.get('pdf') as File | null
     const dsco        = formData.get('dsco') as File | null
+    const inventory   = formData.get('inventory') as File | null
     const invoiceStart = formData.get('invoiceStart')
 
     if (company !== 'KOHLS') {
@@ -22,6 +24,9 @@ export async function POST(req: NextRequest) {
     if (!dsco) {
       return NextResponse.json({ error: 'DSCO order export (CSV/XLS) is required' }, { status: 400 })
     }
+    if (!inventory) {
+      return NextResponse.json({ error: 'Inventory file (CSV/XLS) is required' }, { status: 400 })
+    }
     const startNum = parseInt(String(invoiceStart), 10)
     if (!Number.isInteger(startNum) || startNum <= 0) {
       return NextResponse.json({ error: 'Starting invoice number must be a positive integer' }, { status: 400 })
@@ -29,6 +34,9 @@ export async function POST(req: NextRequest) {
 
     const dscoBuf = Buffer.from(await dsco.arrayBuffer())
     const parsedDsco = parseDscoFile(dscoBuf, dsco.name)
+
+    const inventoryBuf = Buffer.from(await inventory.arrayBuffer())
+    const balanceByStyle = parseInventoryFile(inventoryBuf, inventory.name)
 
     const pdfBuf = Buffer.from(await pdf.arrayBuffer())
     const pages = await extractPdfPages(pdfBuf)
@@ -52,24 +60,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Fulfillment order (single-line orders grouped alphabetically by Right
-    // Click Style #, multi-line orders at the end) now drives both the
-    // Daily File row/invoice sequence and the output PDF's page order.
-    const fulfillmentPageIndices = sorted.flatMap(o => o.pageIndices)
-    const reordered = await reorderPdf(pdfBuf, fulfillmentPageIndices)
+    // Click Style #, multi-line orders at the end), then negative-stock
+    // orders pushed to the bottom on top of that — this final sequence
+    // drives the Daily File row/invoice sequence and the output PDF's page
+    // order alike.
+    const { reordered: finalOrder, negativeStockOrders } = reorderForNegativeStock(sorted, skuMap, balanceByStyle)
+    const fulfillmentPageIndices = finalOrder.flatMap(o => o.pageIndices)
+    const reorderedPdf = await reorderPdf(pdfBuf, fulfillmentPageIndices)
 
     const customerByOrder = buildCustomerByOrder(parsedDsco)
     const serviceByOrder = buildServiceByOrder(parsedDsco)
     const processDate = new Date()
-    const rows = buildDetailRows(sorted, skuMap, customerByOrder, serviceByOrder, startNum, processDate)
+    const rows = buildDetailRows(finalOrder, skuMap, customerByOrder, serviceByOrder, startNum, processDate, negativeStockOrders)
 
     const summary = buildStyleWiseSummary(rows)
     const workbookBuf = await generateWorkbook(rows, summary, String(company))
-    const shippingCsv = buildShippingCsv(parsedDsco, sorted.map(o => o.orderNo), String(company))
+    const shippingPoOrder = finalOrder.filter(o => !negativeStockOrders.has(o.orderNo)).map(o => o.orderNo)
+    const shippingCsv = buildShippingCsv(parsedDsco, shippingPoOrder, String(company))
 
     const datestamp = new Date().toISOString().slice(0, 10)
     return NextResponse.json({
-      message: `✓ Sorted ${pages.length} PDF page(s) into ${orders.length} order(s), ${rows.length} Daily File row(s) generated`,
-      pdf: reordered.toString('base64'),
+      message: `✓ Sorted ${pages.length} PDF page(s) into ${orders.length} order(s), ${rows.length} Daily File row(s) generated` +
+        (negativeStockOrders.size > 0 ? `, ${negativeStockOrders.size} order(s) flagged Negative Stock` : ''),
+      pdf: reorderedPdf.toString('base64'),
       dailyFile: workbookBuf.toString('base64'),
       shippingCsv: Buffer.from(shippingCsv, 'utf-8').toString('base64'),
       filenames: {

@@ -19,6 +19,7 @@ function downloadBase64(filename: string, base64: string, mime: string) {
 export default function KohlSortingForm() {
   const [pdfFile,   setPdfFile]   = useState<File | null>(null)
   const [dscoFile,  setDscoFile]  = useState<File | null>(null)
+  const [inventoryFile, setInventoryFile] = useState<File | null>(null)
   const [invoiceStart, setInvoiceStart] = useState('')
 
   const [submitting, setSubmitting] = useState(false)
@@ -26,7 +27,7 @@ export default function KohlSortingForm() {
   const [missingUpcs, setMissingUpcs] = useState<string[]>([])
 
   const invoiceValid = /^\d+$/.test(invoiceStart) && parseInt(invoiceStart) > 0
-  const formValid = !!pdfFile && !!dscoFile && invoiceValid
+  const formValid = !!pdfFile && !!dscoFile && !!inventoryFile && invoiceValid
 
   const showToast = (msg: string, type: string) => {
     setToast({ msg, type })
@@ -34,7 +35,7 @@ export default function KohlSortingForm() {
   }
 
   const processForm = async () => {
-    if (!formValid || !pdfFile || !dscoFile) return
+    if (!formValid || !pdfFile || !dscoFile || !inventoryFile) return
     setSubmitting(true)
     setMissingUpcs([])
     try {
@@ -42,6 +43,7 @@ export default function KohlSortingForm() {
       formData.append('company', 'KOHLS')
       formData.append('pdf', pdfFile)
       formData.append('dsco', dscoFile)
+      if (inventoryFile) formData.append('inventory', inventoryFile)
       formData.append('invoiceStart', invoiceStart)
 
       const res = await fetch('/api/kohl-sorting/process', {
@@ -80,6 +82,7 @@ export default function KohlSortingForm() {
   const resetForm = () => {
     setPdfFile(null)
     setDscoFile(null)
+    setInventoryFile(null)
     setInvoiceStart('')
   }
 
@@ -120,6 +123,18 @@ export default function KohlSortingForm() {
               onChange={e => setDscoFile(e.target.files?.[0] || null)}
             />
             {dscoFile && <span className={styles.fileName}>{dscoFile.name}</span>}
+          </div>
+        </div>
+
+        <div className={styles.fieldGroupFull}>
+          <div className={styles.field}>
+            <label>Inventory File (CSV/XLS) <span className={styles.req}>*</span></label>
+            <input
+              type="file"
+              accept=".csv,.xls,.xlsx"
+              onChange={e => setInventoryFile(e.target.files?.[0] || null)}
+            />
+            {inventoryFile && <span className={styles.fileName}>{inventoryFile.name}</span>}
           </div>
         </div>
 
