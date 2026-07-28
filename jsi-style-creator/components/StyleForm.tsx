@@ -160,7 +160,11 @@ export default function StyleForm() {
   const mCode   = metals.find(o      => String(o.id) === metal)?.code      || ''
   const sCode   = filteredSizes.find(o => String(o.id) === size)?.code     || ''
   let midCode = ''
-  if (ctw && parseFloat(ctw) > 0) {
+  if (GEMSTONE_TYPES.includes(stoneTypes.find(o => String(o.id) === stoneType)?.name || '')) {
+    if (colorstone) {
+    midCode = colorstones.find(o => String(o.id) === colorstone)?.code || ''
+    }
+  } else if (ctw && parseFloat(ctw) > 0) {
     midCode = String(Math.round(parseFloat(ctw) * 100)).padStart(4, '0')
   } else if (colorstone) {
     midCode = colorstones.find(o => String(o.id) === colorstone)?.code || ''

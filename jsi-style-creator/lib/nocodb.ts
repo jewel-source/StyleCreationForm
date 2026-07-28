@@ -67,7 +67,14 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Ring: 'm0dobyiclul0ysu'
   },
   'No Stone': {
-    Set: 'mvip9hxmk4fk3mk'
+    Set: 'mvip9hxmk4fk3mk',
+    Bangle: 'mocv2hhy920wwv0',
+    Bracelet: 'vwevo3m71u0gbilo',
+    Earring: 'mr8sc5lhg6mqglv',
+    Earrings: 'mr8sc5lhg6mqglv',
+    Necklace: 'mpzeec8cg4rzbp3',
+    Pendant: 'mucdbz8f89x2fm1',
+    Ring: 'mu1axclm5vmcwj7',
   },
 }
 
@@ -120,6 +127,13 @@ export const PREFIX: Record<string, Record<string, string>> = {
   },
   'No Stone': {
     Set: '',
+    Bangle: '',
+    Bracelet: '',
+    Earring: '',
+    Earrings: '',
+    Necklace: '',
+    Pendant: '',
+    Ring: '',
   },
 }
 
@@ -166,6 +180,13 @@ export const START_UID: Record<string, Record<string, number>> = {
   },
   'No Stone': {
     Set: 224,
+    Bangle: 3,
+    Bracelet: 51,
+    Earring: 72,
+    Earrings: 72,
+    Necklace: 85,
+    Pendant: 52,
+    Ring: 46,
   },
 }
 
