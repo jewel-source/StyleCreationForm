@@ -23,6 +23,41 @@ export const UID_BASE = 'pbe18uecvc3ly66'
 export const SKU_BASE  = 'p9gl3g6ig1d3yhd'
 export const SKU_TABLE = 'm3gou8rh2uou5o3'
 
+const COLOR_DIAMOND_TABLES: Record<string, string> = {
+  Bangle:   'mjey2caovt2s90m',
+  Bracelet: 'm9lpjnwb3ct8v3d',
+  Earring:  'mzkipppcwbgafa7',
+  Earrings: 'mzkipppcwbgafa7',
+  Necklace: 'mr07005zftzzsql',
+  Pendant:  'm4fed6lad4lpw3z',
+  Ring:     'm1m7rxzfk6vgn8q',
+}
+
+const COLOR_DIAMOND_PREFIX: Record<string, string> = {
+  Bangle: '', Bracelet: '', Earring: '', Earrings: '', Necklace: '', Pendant: '', Ring: '',
+}
+
+const COLOR_DIAMOND_START: Record<string, number> = {
+  Bangle: 1, Bracelet: 1, Earring: 1, Earrings: 1, Necklace: 1, Pendant: 1, Ring: 1,
+}
+
+const COLOR_DIAMOND_STONE_TYPES = [
+  'Natural Red Diamonds',
+  'Natural Blue Diamonds',
+  'Natural Black Diamonds',
+  'Natural Green Diamonds',
+  'Natural Yellow Diamonds',
+  'Natural Champagne Diamonds',
+  'Natural Pink Diamonds',
+  'Lab-Grown Red Diamonds',
+  'Lab-Grown Blue Diamonds',
+  'Lab-Grown Black Diamonds',
+  'Lab-Grown Green Diamonds',
+  'Lab-Grown Yellow Diamonds',
+  'Lab-Grown Champagne Diamonds',
+  'Lab-Grown Pink Diamonds',
+]
+
 // Nested by Stone Type -> Category -> table ID
 export const UID_TABLES: Record<string, Record<string, string>> = {
   'Lab Diamond': {
@@ -76,15 +111,10 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Pendant: 'mucdbz8f89x2fm1',
     Ring: 'mu1axclm5vmcwj7',
   },
-  'Colored Diamond':{
-    Bangle: 'mjey2caovt2s90m',
-    Bracelet: 'm9lpjnwb3ct8v3d',
-    Earring : 'vwzjc9x63auqaa5s',
-    Earrings: 'vwzjc9x63auqaa5s',
-    Necklace: 'mr07005zftzzsql',
-    Pendant: 'm4fed6lad4lpw3z',
-    Ring: 'm1m7rxzfk6vgn8q',
-  },
+}
+
+for (const stoneType of COLOR_DIAMOND_STONE_TYPES) {
+  UID_TABLES[stoneType] = COLOR_DIAMOND_TABLES
 }
 
 // Nested by Stone Type -> Category -> prefix used in JSI Style#
@@ -144,16 +174,12 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Pendant: '',
     Ring: '',
   },
-  'Colored Diamond': {
-    Bangle: '',
-    Bracelet: '',
-    Earring: '',
-    Earrings: '',
-    Necklace: '',
-    Pendant: '',
-    Ring: '',
-  }
 }
+
+for (const stoneType of COLOR_DIAMOND_STONE_TYPES) {
+  PREFIX[stoneType] = COLOR_DIAMOND_PREFIX
+}
+
 
 // Starting UID number by Stone Type -> Category
 export const START_UID: Record<string, Record<string, number>> = {
@@ -206,15 +232,10 @@ export const START_UID: Record<string, Record<string, number>> = {
     Pendant: 52,
     Ring: 46,
   },
-  'Colored Diamond': {
-    Bangle: 1,
-    Bracelet: 1,
-    Earring: 1,
-    Earrings: 1,
-    Necklace: 1,
-    Pendant: 1,
-    Ring: 1,
-  }
+}
+
+for (const stoneType of COLOR_DIAMOND_STONE_TYPES) {
+  START_UID[stoneType] = COLOR_DIAMOND_START
 }
 
 export const CATEGORY_MAP: Record<string, string> = {
