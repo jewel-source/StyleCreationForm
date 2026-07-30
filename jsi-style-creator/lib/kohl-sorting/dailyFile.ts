@@ -10,18 +10,6 @@ export interface OrderGroup {
   pageIndices: number[]
 }
 
-/**
- * Groups the sorted PDF pages into one entry per order (merging multi-page
- * orders), in the order they first appear in the DSCO PO-order sequence.
- * This is just a grouping pass — the actual output sequence (Sr#/INV#
- * numbering, PDF page order) is decided afterward by
- * `sortOrdersForFulfillment`.
- *
- * Line items come from the DSCO export when it's the line-item-detail shape
- * (po_number + line_item_upc/qty/cost are richer/more reliable than the PDF
- * heuristic parse); otherwise they come from the PDF's own per-page parse,
- * since the shipping-import shape carries no line items of its own.
- */
 export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco: ParsedDsco): OrderGroup[] {
   const groups: OrderGroup[] = []
   const groupIndexByOrder = new Map<string, number>()
@@ -84,18 +72,6 @@ export interface SortOrdersResult {
   emptyOrders: string[]
 }
 
-/**
- * Final fulfillment ordering, replacing DSCO PO order as the sequence that
- * drives Sr#/INV# numbering and the output PDF's page order: single-line-
- * item orders are sorted alphabetically by their one line's Right Click
- * Style # (grouping same-style orders together for efficient picking), then
- * by JS Style # as a tiebreaker — Right Click Style # has the size suffix
- * stripped off (e.g. "JR07160TZSZ8" -> "JR07160TZ"), so different sizes of
- * the same style tie on it and would otherwise fall back to DSCO PO order
- * instead of being grouped by size too. Multi-line orders can't be sorted by
- * a single style, so they're appended at the end, keeping their relative
- * DSCO PO order.
- */
 export function sortOrdersForFulfillment(
   orders: OrderGroup[],
   skuMap: Map<string, SkuCatalogEntry>
@@ -124,19 +100,13 @@ export function sortOrdersForFulfillment(
   if (emptyOrders.length > 0 || missingUpcs.size > 0) {
     return { sorted: [], missingUpcs: [...missingUpcs], emptyOrders }
   }
-
   singleLine.sort((a, b) =>
-    a.rightClickStyle.localeCompare(b.rightClickStyle) || a.jsStyle.localeCompare(b.jsStyle)
+    a.rightClickStyle.localeCompare(b.rightClickStyle, undefined, { numeric: true }) ||
+    a.jsStyle.localeCompare(b.jsStyle, undefined, { numeric: true })
   )
   return { sorted: [...singleLine.map(s => s.order), ...multiLine], missingUpcs: [], emptyOrders: [] }
 }
 
-/**
- * Order # -> Customer name, joined from the DSCO export. Line-item-detail
- * shape (.xls) carries `ship_first_name`/`ship_last_name` keyed by
- * `po_number`; shipping-import shape (.csv) carries `ShipToCompanyorName`
- * keyed by `Reference1`. Either way the join key matches the PDF's `Order #`.
- */
 export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
   const map = new Map<string, string>()
 
@@ -159,12 +129,6 @@ export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
   return map
 }
 
-/**
- * Order # -> Service, joined from the DSCO export's `shipping_service_level_code`
- * column. Same po-field-per-shape join as `buildCustomerByOrder`; falls back to
- * blank if the row has no value for it (e.g. shipping-import shape rows that
- * don't carry this field).
- */
 export function buildServiceByOrder(dsco: ParsedDsco): Map<string, string> {
   const map = new Map<string, string>()
   const poField = dsco.shape === 'line-item-detail' ? 'po_number' : 'Reference1'
@@ -195,25 +159,6 @@ export interface DailyFileRow {
   trackingNo: string
 }
 
-/**
- * Cross-checks each order's line items against the Inventory file's Balance
- * On Hand (keyed by JS Style #), consuming a running balance as orders are
- * processed in fulfillment order — orders later in the sequence see the
- * balance already reduced by earlier orders in this batch competing for the
- * same style, so a later order can be flagged even when an earlier one for
- * the same style wasn't. An order is flagged negative-stock if subtracting
- * any of its line items' quantity drives that style's running balance
- * below 0 — an order that exactly uses up the last piece (balance lands on
- * exactly 0) is a normal, fulfillable order and is NOT flagged; only
- * demand that exceeds what's left is. A style with no Inventory-file entry
- * is treated as unconstrained (not flagged) — the file isn't guaranteed to
- * cover every style.
- *
- * Flagged orders are moved to the bottom of the returned sequence (relative
- * order preserved within both the kept and flagged groups), since this
- * return value drives Sr#/INV# numbering, the output PDF's page order, and
- * (via the caller excluding `negativeStockOrders`) the shipping-import CSV.
- */
 export function reorderForNegativeStock(
   orders: OrderGroup[],
   skuMap: Map<string, SkuCatalogEntry>,
@@ -239,18 +184,6 @@ export function reorderForNegativeStock(
   return { reordered: [...kept, ...flagged], negativeStockOrders }
 }
 
-/**
- * One row per line item per order, sequential Sr#/INV# per *order* (not per
- * line item — every row belonging to an order repeats the same Sr#/INV#).
- * `Date` is the batch's processing date, repeated on every row of this run
- * (not per-order, not per-line-item). `Price = Cost × Order Pcs.` per spec.
- *
- * `orders` must already be validated (no empty orders, no missing UPCs) via
- * `sortOrdersForFulfillment` — this only builds rows in the given sequence
- * (typically `reorderForNegativeStock`'s output, applied on top of that).
- * `negativeStockOrders` (from `reorderForNegativeStock`) writes the literal
- * "Negative Stock" into every row's Tracking # for a flagged order.
- */
 export function buildDetailRows(
   orders: OrderGroup[],
   skuMap: Map<string, SkuCatalogEntry>,
@@ -297,16 +230,6 @@ export interface StyleWiseSummary {
   multipleLineQty: number
 }
 
-/**
- * Per-style Total Qty + Multiple Line Qty, feeding both Style Wise and
- * Style Wise2. Grouped and sorted by JS Style # — the size-specific style,
- * matching Sheet1's per-row detail — not by Right Click Style #, which has
- * the size suffix stripped (e.g. "JR07160TZSZ8" -> "JR07160TZ") and would
- * merge every size of a style into a single row/qty. Group rows by order
- * (by `Sr #`, which — like `INV #` — is per-order unique) — if an order has
- * more than one row, every one of its rows counts toward Multiple Line Qty
- * for its style; single-line orders count only toward Total Qty.
- */
 export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] {
   const rowCountBySr = new Map<number, number>()
   for (const r of rows) {
@@ -325,7 +248,7 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
   }
 
   return [...byStyle.entries()]
-    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB, undefined, { numeric: true }))
     .map(([, summary]) => summary)
 }
 
@@ -336,11 +259,6 @@ const SHEET1_HEADERS = [
 const SHEET1_COLUMN_WIDTHS = [5, 15, 28, 19, 31, 7, 13, 13, 25, 32, 11, 20, 21]
 const ORDER_PCS_COL = 6
 
-// Extracted directly from reference/daily-file-empty-template.xlsx's raw OOXML
-// (xl/styles.xml + xl/theme/theme1.xml): title-block fill is theme accent-5
-// (#4BACC6) tinted ~0.8 toward white; title/label text is Times New Roman
-// bold, data rows are Calibri. Column-header row and data cells are NOT
-// filled — only the Date/title banner is, per the real Daily File example.
 const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEEF4' } }
 const GRAY_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBFBFBF' } }
 const TITLE_FONT: Partial<ExcelJS.Font> = { name: 'Times New Roman', bold: true, size: 20 }
@@ -357,7 +275,6 @@ const CURRENCY_FMT = '"$"#,##0.00'
 const DATE_FMT = 'm/d/yyyy'
 const TITLE_DATE_FMT = 'd-mmm-yy'
 
-/** Thin grid over a header+data block, upgraded to medium on its outer edges and on column A's right edge (index-column divider), matching the template. */
 function applyBoxBorders(sheet: ExcelJS.Worksheet, firstRow: number, lastRow: number, lastCol: number) {
   for (let r = firstRow; r <= lastRow; r++) {
     for (let c = 1; c <= lastCol; c++) {
@@ -384,16 +301,6 @@ function boxRow(sheet: ExcelJS.Worksheet, rowNumber: number, startCol: number, e
   }
 }
 
-/**
- * `Date` label/value box + a merged, centered company-title banner + a blank
- * spacer row. Both boxed elements are independent, self-contained boxes —
- * not part of the header+data table's border block below them (matches the
- * template: the Date/title boxes sit above the table, not flush with it).
- * `dateBoxCol`/`titleMergeStart`/`titleMergeEnd` let Sheet1 position these
- * like the real template (offset, not spanning the full row) while sheets
- * with no template counterpart (Style Wise/Style Wise2) default to
- * spanning the sheet's full column count.
- */
 function writeTitleBlock(
   sheet: ExcelJS.Worksheet,
   title: string,
@@ -438,8 +345,6 @@ export async function generateWorkbook(
   const workbook = new ExcelJS.Workbook()
   workbook.created = new Date()
 
-  // Sheet1 — Date box + title banner positioned like the real template
-  // (offset over columns I:J and C:J respectively, not spanning A:M).
   const sheet1 = workbook.addWorksheet('Sheet1')
   sheet1.views = [{ showGridLines: false }]
   writeTitleBlock(sheet1, `${company}.COM`, SHEET1_HEADERS.length, {

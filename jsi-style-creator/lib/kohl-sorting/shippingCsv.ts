@@ -27,6 +27,12 @@ export const LINE_ITEM_DETAIL_FIELD_MAP: Record<string, string> = {
   ShipmentInformationServiceType: 'shipping_service_level_code',
 }
 
+const FIXED_PACKAGE_INFO: Record<string, string> = {
+  ShipmentInformationBillTransportationTo: 'Third Party',
+  PackagePackageType: 'Package',
+  PackageWeight: '1',
+}
+
 const TP_INFO_BY_COMPANY: Record<string, Record<string, string>> = {
   KOHLS: {
     TPCompanyName: 'KOHLS.COM',
@@ -55,17 +61,17 @@ export function buildShippingCsv(dsco: ParsedDsco, orderedPoNumbers: string[], c
     const row = rowByPo.get(po)
     if (!row) continue
 
-    const line = dsco.shape === 'shipping-import'
-      ? SHIPPING_IMPORT_COLUMNS.map(col => csvEscape(row[col]))
-      : SHIPPING_IMPORT_COLUMNS.map(col => {
-          if (col === 'Reference1') return csvEscape(po)
-          if (col === 'ShipToCompanyorName') {
-            return csvEscape(`${dscoField(row, 'ship_first_name')} ${dscoField(row, 'ship_last_name')}`.trim())
-          }
-          if (col in tpInfo) return csvEscape(tpInfo[col])
-          const mapped = LINE_ITEM_DETAIL_FIELD_MAP[col]
-          return mapped ? csvEscape(dscoField(row, mapped)) : ''
-        })
+    const line = SHIPPING_IMPORT_COLUMNS.map(col => {
+      if (col in FIXED_PACKAGE_INFO) return csvEscape(FIXED_PACKAGE_INFO[col])
+      if (dsco.shape === 'shipping-import') return csvEscape(row[col])
+      if (col === 'Reference1') return csvEscape(po)
+      if (col === 'ShipToCompanyorName') {
+        return csvEscape(`${dscoField(row, 'ship_first_name')} ${dscoField(row, 'ship_last_name')}`.trim())
+      }
+      if (col in tpInfo) return csvEscape(tpInfo[col])
+      const mapped = LINE_ITEM_DETAIL_FIELD_MAP[col]
+      return mapped ? csvEscape(dscoField(row, mapped)) : ''
+    })
     lines.push(line.join(','))
   }
 
