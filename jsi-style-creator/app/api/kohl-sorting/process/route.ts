@@ -43,11 +43,19 @@ export async function POST(req: NextRequest) {
     try {
       parsedDsco = JSON.parse(dscoJson)
       if (parsedDsco.shape !== 'line-item-detail' && parsedDsco.shape !== 'shipping-import') {
-        throw new Error('unrecognized shape')
+        throw new Error(`unrecognized shape: ${JSON.stringify(parsedDsco.shape)}`)
       }
-      balanceByStyle = new Map(JSON.parse(inventoryJson))
-    } catch {
-      return NextResponse.json({ error: 'Parsed DSCO/inventory results were malformed — re-upload those files and try again' }, { status: 400 })
+      const inventoryPayload = JSON.parse(inventoryJson)
+      balanceByStyle = new Map(inventoryPayload.balanceByStyle)
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      console.error('Failed to parse DSCO/inventory JSON payload:', detail, {
+        dscoJsonLength: dscoJson.length,
+        inventoryJsonLength: inventoryJson.length,
+      })
+      return NextResponse.json({
+        error: `Parsed DSCO/inventory results were malformed — re-upload those files and try again (${detail})`,
+      }, { status: 400 })
     }
 
     const pdfBuf = Buffer.from(await pdf.arrayBuffer())
