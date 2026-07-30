@@ -88,9 +88,13 @@ export interface SortOrdersResult {
  * Final fulfillment ordering, replacing DSCO PO order as the sequence that
  * drives Sr#/INV# numbering and the output PDF's page order: single-line-
  * item orders are sorted alphabetically by their one line's Right Click
- * Style # (grouping same-style orders together for efficient picking);
- * multi-line orders can't be sorted by a single style, so they're appended
- * at the end, keeping their relative DSCO PO order.
+ * Style # (grouping same-style orders together for efficient picking), then
+ * by JS Style # as a tiebreaker — Right Click Style # has the size suffix
+ * stripped off (e.g. "JR07160TZSZ8" -> "JR07160TZ"), so different sizes of
+ * the same style tie on it and would otherwise fall back to DSCO PO order
+ * instead of being grouped by size too. Multi-line orders can't be sorted by
+ * a single style, so they're appended at the end, keeping their relative
+ * DSCO PO order.
  */
 export function sortOrdersForFulfillment(
   orders: OrderGroup[],
@@ -98,7 +102,7 @@ export function sortOrdersForFulfillment(
 ): SortOrdersResult {
   const emptyOrders: string[] = []
   const missingUpcs = new Set<string>()
-  const singleLine: { order: OrderGroup; rightClickStyle: string }[] = []
+  const singleLine: { order: OrderGroup; rightClickStyle: string; jsStyle: string }[] = []
   const multiLine: OrderGroup[] = []
 
   for (const order of orders) {
@@ -111,7 +115,7 @@ export function sortOrdersForFulfillment(
     }
     if (order.lineItems.length === 1) {
       const entry = skuMap.get(order.lineItems[0].upc)
-      singleLine.push({ order, rightClickStyle: entry?.rightClickStyleNumber ?? '' })
+      singleLine.push({ order, rightClickStyle: entry?.rightClickStyleNumber ?? '', jsStyle: entry?.styleNumber ?? '' })
     } else {
       multiLine.push(order)
     }
@@ -121,7 +125,9 @@ export function sortOrdersForFulfillment(
     return { sorted: [], missingUpcs: [...missingUpcs], emptyOrders }
   }
 
-  singleLine.sort((a, b) => a.rightClickStyle.localeCompare(b.rightClickStyle))
+  singleLine.sort((a, b) =>
+    a.rightClickStyle.localeCompare(b.rightClickStyle) || a.jsStyle.localeCompare(b.jsStyle)
+  )
   return { sorted: [...singleLine.map(s => s.order), ...multiLine], missingUpcs: [], emptyOrders: [] }
 }
 
@@ -293,13 +299,13 @@ export interface StyleWiseSummary {
 
 /**
  * Per-style Total Qty + Multiple Line Qty, feeding both Style Wise and
- * Style Wise2. Grouped and sorted by Right Click Style # (not JS Style #) —
- * same key the fulfillment sort uses, so the summary lines up with the
- * Sheet1 row order and the PDF page order. **Confirmed** rule from the
- * spec: group rows by order (by `Sr #`, which — like `INV #` — is per-order
- * unique) — if an order has more than one row, every one of its rows counts
- * toward Multiple Line Qty for its style; single-line orders count only
- * toward Total Qty.
+ * Style Wise2. Grouped and sorted by JS Style # — the size-specific style,
+ * matching Sheet1's per-row detail — not by Right Click Style #, which has
+ * the size suffix stripped (e.g. "JR07160TZSZ8" -> "JR07160TZ") and would
+ * merge every size of a style into a single row/qty. Group rows by order
+ * (by `Sr #`, which — like `INV #` — is per-order unique) — if an order has
+ * more than one row, every one of its rows counts toward Multiple Line Qty
+ * for its style; single-line orders count only toward Total Qty.
  */
 export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] {
   const rowCountBySr = new Map<number, number>()
@@ -309,8 +315,8 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
 
   const byStyle = new Map<string, StyleWiseSummary>()
   for (const r of rows) {
-    const key = r.rightClickStyleNo || '(unmatched)'
-    if (!byStyle.has(key)) byStyle.set(key, { style: r.jsStyleNo || '(unmatched)', totalQty: 0, multipleLineQty: 0 })
+    const key = r.jsStyleNo || '(unmatched)'
+    if (!byStyle.has(key)) byStyle.set(key, { style: key, totalQty: 0, multipleLineQty: 0 })
     const s = byStyle.get(key)!
     s.totalQty += r.orderPcs
     if ((rowCountBySr.get(r.srNo) ?? 0) > 1) {

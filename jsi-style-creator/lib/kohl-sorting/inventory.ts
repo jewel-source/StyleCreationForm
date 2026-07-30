@@ -8,19 +8,6 @@ function stripTotalSuffix(s: string): string {
   return s.replace(/\s*total\s*$/i, '').trim()
 }
 
-/**
- * Parses the team's daily Inventory file (pivot-table shaped — one row per
- * JS Style #, with a " Total" suffix on the style label) into a
- * JS Style # -> Balance On Hand map, for the negative-stock cross-check in
- * dailyFile.ts's `reorderForNegativeStock`. Confirmed 2026-07-24 against a
- * real Inventory export — "Style #" and "Balance on Hand" are the literal
- * headers, matched against JS Style # (not UPC).
- *
- * The real file (the "Kohls Inventory Master File") has a few title/banner
- * rows above the actual header row ("Starts from 1st Jan 2026", etc.), so
- * the header row isn't row 1 — it's scanned for by content instead of
- * assumed to be first.
- */
 export function parseInventoryFile(buf: Buffer, filename: string): Map<string, number> {
   const workbook = XLSX.read(buf, { type: 'buffer' })
   const sheetName = workbook.SheetNames[0]

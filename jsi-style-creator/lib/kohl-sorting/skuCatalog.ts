@@ -6,7 +6,6 @@ export interface SkuCatalogEntry {
   rightClickStyleNumber: string
 }
 
-/** UPC (the `Sku #` field, despite its name) -> catalog entry. */
 export async function fetchSkuCatalogMap(): Promise<Map<string, SkuCatalogEntry>> {
   const rows = await fetchAll(SKU_BASE, SKU_TABLE)
   const map = new Map<string, SkuCatalogEntry>()

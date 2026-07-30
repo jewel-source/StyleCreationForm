@@ -1,8 +1,4 @@
 import { PDFDocument } from 'pdf-lib'
-
-// Notebook rule: `idx = lines.index("ORDER#:"); po = lines[idx + 2]` — the
-// order number sits 2 lines below the literal "ORDER#:" line (verified
-// against the notebook's captured sample page text, not just its comment).
 const ORDER_NUMBER_LINE_OFFSET = 2
 
 export interface LineItem {
@@ -20,12 +16,6 @@ export interface PdfPage {
   lineItems: LineItem[]
 }
 
-// pdfjs-dist's own Node-detection shim tries to `require("@napi-rs/canvas")`
-// at module-load time to polyfill DOMMatrix/Path2D, but that internal
-// require (built via `process.getBuiltinModule("module").createRequire`)
-// doesn't resolve correctly when the module is loaded through Next/Turbopack's
-// `serverExternalPackages` loader — so we polyfill the globals ourselves
-// first, via a normal import(), which Turbopack handles fine.
 async function ensureCanvasPolyfills() {
   if (typeof (globalThis as any).DOMMatrix !== 'undefined') return
   const canvas = await import('@napi-rs/canvas')
@@ -33,13 +23,6 @@ async function ensureCanvasPolyfills() {
   ;(globalThis as any).Path2D = canvas.Path2D
 }
 
-// pdfjs-dist's Node "fake worker" falls back to a runtime-constructed
-// `import(this.workerSrc)` to load pdf.worker.mjs, which isn't a static
-// string literal a bundler/file-tracer can follow — it gets dropped from
-// Vercel's deployed function. pdfjs-dist checks `globalThis.pdfjsWorker`
-// first though, so importing the worker ourselves (a real static specifier,
-// traced the same way pdf.mjs itself is) and setting that global skips the
-// broken fallback path entirely.
 async function ensurePdfWorker() {
   if ((globalThis as any).pdfjsWorker) return
   // @ts-expect-error - pdfjs-dist ships no type declarations for this entry point
@@ -130,14 +113,6 @@ export async function extractPdfPages(buf: Buffer): Promise<PdfPage[]> {
   return pages
 }
 
-/**
- * Direct port of the notebook's 3-step reorder: pages whose order number
- * appears in `poOrder` are emitted in that order (all pages for a given PO,
- * in original relative order); everything else is appended at the end, in
- * original order. Returns the 0-based *original* page indices in output
- * order — shared by `reorderPdf` (to build the output PDF) and the Daily
- * File builder (to group line items into orders in the same sequence).
- */
 export function computeSortedPageIndices(poOrder: string[], pages: PdfPage[]): number[] {
   const poToPageIndices = new Map<string, number[]>()
   for (const { pageNo, orderNo } of pages) {
