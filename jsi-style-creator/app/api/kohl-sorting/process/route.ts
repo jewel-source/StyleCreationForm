@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseDscoFile } from '@/lib/kohl-sorting/dsco'
+import type { ParsedDsco } from '@/lib/kohl-sorting/dsco'
 import { computeSortedPageIndices, extractPdfPages, reorderPdf } from '@/lib/kohl-sorting/pdf'
 import { buildCustomerByOrder, buildDetailRows, buildOrderGroups, buildServiceByOrder, buildStyleWiseSummary, generateWorkbook, reorderForNegativeStock, sortOrdersForFulfillment } from '@/lib/kohl-sorting/dailyFile'
-import { parseInventoryFile } from '@/lib/kohl-sorting/inventory'
 import { fetchSkuCatalogMap } from '@/lib/kohl-sorting/skuCatalog'
 import { buildShippingCsv } from '@/lib/kohl-sorting/shippingCsv'
 
+/**
+ * Takes the already-parsed DSCO/inventory results from the upload endpoints
+ * plus the raw PDF (sent fresh — its exact bytes are needed to reorder the
+ * original pages into the output PDF, which parsed page data alone can't
+ * reconstruct) and runs the existing sort/match/generate pipeline. Nothing
+ * here is persisted; everything lives only for the duration of the request.
+ */
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
-    const company     = formData.get('company')
-    const pdf         = formData.get('pdf') as File | null
-    const dsco        = formData.get('dsco') as File | null
-    const inventory   = formData.get('inventory') as File | null
-    const invoiceStart = formData.get('invoiceStart')
+    const company       = formData.get('company')
+    const pdf           = formData.get('pdf') as File | null
+    const dscoJson      = formData.get('dsco')
+    const inventoryJson = formData.get('inventory')
+    const invoiceStart  = formData.get('invoiceStart')
 
     if (company !== 'KOHLS') {
       return NextResponse.json({ error: 'Company must be KOHLS' }, { status: 400 })
@@ -21,22 +27,28 @@ export async function POST(req: NextRequest) {
     if (!pdf) {
       return NextResponse.json({ error: 'Packing-slip PDF is required' }, { status: 400 })
     }
-    if (!dsco) {
-      return NextResponse.json({ error: 'DSCO order export (CSV/XLS) is required' }, { status: 400 })
+    if (typeof dscoJson !== 'string') {
+      return NextResponse.json({ error: 'Parsed DSCO result is required — upload the DSCO export first' }, { status: 400 })
     }
-    if (!inventory) {
-      return NextResponse.json({ error: 'Inventory file (CSV/XLS) is required' }, { status: 400 })
+    if (typeof inventoryJson !== 'string') {
+      return NextResponse.json({ error: 'Parsed inventory result is required — upload the inventory file first' }, { status: 400 })
     }
     const startNum = parseInt(String(invoiceStart), 10)
     if (!Number.isInteger(startNum) || startNum <= 0) {
       return NextResponse.json({ error: 'Starting invoice number must be a positive integer' }, { status: 400 })
     }
 
-    const dscoBuf = Buffer.from(await dsco.arrayBuffer())
-    const parsedDsco = parseDscoFile(dscoBuf, dsco.name)
-
-    const inventoryBuf = Buffer.from(await inventory.arrayBuffer())
-    const balanceByStyle = parseInventoryFile(inventoryBuf, inventory.name)
+    let parsedDsco: ParsedDsco
+    let balanceByStyle: Map<string, number>
+    try {
+      parsedDsco = JSON.parse(dscoJson)
+      if (parsedDsco.shape !== 'line-item-detail' && parsedDsco.shape !== 'shipping-import') {
+        throw new Error('unrecognized shape')
+      }
+      balanceByStyle = new Map(JSON.parse(inventoryJson))
+    } catch {
+      return NextResponse.json({ error: 'Parsed DSCO/inventory results were malformed — re-upload those files and try again' }, { status: 400 })
+    }
 
     const pdfBuf = Buffer.from(await pdf.arrayBuffer())
     const pages = await extractPdfPages(pdfBuf)

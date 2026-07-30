@@ -59,3 +59,20 @@ export function parseDscoFile(buf: Buffer, filename: string): ParsedDsco {
 
   return { shape, poOrder, rows }
 }
+
+/**
+ * Trims each row down to just `keepFields`, dropping everything else. Used
+ * by the DSCO upload endpoint so the parsed response sent back to the
+ * browser carries only the handful of fields the pipeline actually reads,
+ * not every column the raw export contains (the line-item-detail shape
+ * alone has ~130).
+ */
+export function projectDscoRows(rows: Record<string, any>[], keepFields: readonly string[]): Record<string, any>[] {
+  return rows.map(row => {
+    const projected: Record<string, any> = {}
+    for (const field of keepFields) {
+      if (field in row) projected[field] = row[field]
+    }
+    return projected
+  })
+}

@@ -1,6 +1,6 @@
 import { dscoField, type ParsedDsco } from './dsco'
 
-const SHIPPING_IMPORT_COLUMNS = [
+export const SHIPPING_IMPORT_COLUMNS = [
   'ShipToCustomerID', 'ShipToCompanyorName', 'ShipToAttention', 'ShipToAddress1',
   'ShipToAddress2', 'ShipToAddress3', 'ShipToCountryTerritory', 'ShipToPostalCode',
   'ShipToCityorTown', 'ShipToStateProvinceCounty', 'ShipToTelephone', 'ShipToEmailAddress',
@@ -21,7 +21,7 @@ function csvEscape(val: unknown): string {
 // (ShipToCustomerID, ShipToAddress3, ShipmentInformationBillTransportationTo,
 // PackagePackageType, PackageWeight, Reference2) stay blank per CLAUDE.md —
 // don't guess fields we haven't verified against a real file.
-const LINE_ITEM_DETAIL_FIELD_MAP: Record<string, string> = {
+export const LINE_ITEM_DETAIL_FIELD_MAP: Record<string, string> = {
   ShipToAttention: 'ship_attention',
   ShipToAddress1: 'ship_address_1',
   ShipToAddress2: 'ship_address_2',
