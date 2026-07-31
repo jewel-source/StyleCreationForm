@@ -1,0 +1,186 @@
+.card {
+  background: linear-gradient(145deg, rgba(255,255,255,0.97), rgba(251,245,230,0.95));
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow:
+    0 32px 80px rgba(0,0,0,0.4),
+    0 0 0 1px rgba(201,168,76,0.15);
+  backdrop-filter: blur(10px);
+}
+
+.cardTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(to right, var(--gold), var(--gold-light), transparent) 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cardTitle::before {
+  content: '';
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(to bottom, var(--gold), var(--gold-light));
+  border-radius: 2px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  margin-bottom: 14px;
+  padding-left: 2px;
+}
+
+.searchRow {
+  display: flex;
+  gap: 12px;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 13px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: linear-gradient(135deg, #ffffff, #fafafa);
+  transition: all 0.25s;
+  letter-spacing: 1px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.15), 0 2px 8px rgba(201,168,76,0.1);
+}
+
+.searchBtn {
+  padding: 13px 24px;
+  background: linear-gradient(135deg, #C9A84C, #E8C97A, #C9A84C);
+  background-size: 200% auto;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dark);
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.3);
+}
+
+.searchBtn:hover:not(:disabled) {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(201,168,76,0.45);
+}
+
+.searchBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+  margin: 24px 0;
+}
+
+.uidWrapper {
+  position: relative;
+  background: linear-gradient(135deg, #FBF5E6, #FDF3D0);
+  border: 1.5px solid var(--gold);
+  border-radius: 12px;
+  padding: 14px 44px 14px 16px;
+  box-shadow: 0 2px 8px rgba(201,168,76,0.15);
+}
+
+.styleNumDisplay {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--dark);
+  font-family: 'Courier New', monospace;
+}
+
+.uidLock {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.detailField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailField label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.readOnlyValue {
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: linear-gradient(135deg, #F3F4F6, #F9FAFB);
+  cursor: not-allowed;
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  z-index: 1000;
+  max-width: 360px;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+.toastSuccess {
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.toastError {
+  background: linear-gradient(135deg, #DC2626, #ef4444);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

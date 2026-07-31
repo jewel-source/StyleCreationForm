@@ -6,6 +6,7 @@ import styles from './TopNav.module.css'
 
 const TABS = [
   { href: '/', label: 'Style Creation' },
+  { href: '/search-style', label: 'Search Style' },
   { href: '/kohl-sorting', label: 'Kohl Sorting' },
 ]
 
