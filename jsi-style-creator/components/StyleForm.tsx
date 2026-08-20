@@ -164,7 +164,7 @@ export default function StyleForm() {
     if (colorstone) {
     midCode = colorstones.find(o => String(o.id) === colorstone)?.code || ''
     }
-  } else if (ctw && parseFloat(ctw) > 0) {
+  } else if (ctw !== '' && !isNaN(parseFloat(ctw)) && parseFloat(ctw) >= 0) {
     midCode = String(Math.round(parseFloat(ctw) * 100)).padStart(4, '0')
   } else if (colorstone) {
     midCode = colorstones.find(o => String(o.id) === colorstone)?.code || ''
