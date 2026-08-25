@@ -104,7 +104,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
   'No Stone': {
     Set: 'mvip9hxmk4fk3mk',
     Bangle: 'mocv2hhy920wwv0',
-    Bracelet: 'vwevo3m71u0gbilo',
+    Bracelet: 'm8jjailnhpxjrcd',
     Earring: 'mr8sc5lhg6mqglv',
     Earrings: 'mr8sc5lhg6mqglv',
     Necklace: 'mpzeec8cg4rzbp3',
@@ -250,6 +250,26 @@ export const CATEGORY_MAP: Record<string, string> = {
   Brooch:    'BROOCH',
   Set:       'SET',
   Anklet:    'ANKLET',
+}
+
+// UID tables in NocoDB don't have consistent field naming across categories —
+// e.g. "JSI Style#" vs "JSI Style #" vs "JSI STYLE #". Requesting an exact
+// field name via `fields=` throws ERR_FIELD_NOT_FOUND on a mismatch, and
+// fetchAll() swallows that as an empty result set. Look values up by a
+// whitespace/case-insensitive key match instead of a literal property access.
+function normFieldKey(s: string): string {
+  return s.replace(/\s+/g, '').toLowerCase()
+}
+
+export function pickField(row: Record<string, any>, name: string): any {
+  const target = normFieldKey(name)
+  const key = Object.keys(row).find(k => normFieldKey(k) === target)
+  return key ? row[key] : undefined
+}
+
+export function findFieldKey(row: Record<string, any>, name: string): string | undefined {
+  const target = normFieldKey(name)
+  return Object.keys(row).find(k => normFieldKey(k) === target)
 }
 
 export async function fetchAll(baseId: string, tableId: string, fields = '', where = ''): Promise<any[]> {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  fetchAll, SUBMIT_BASE, SUBMIT_TABLE, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX,
+  fetchAll, pickField, SUBMIT_BASE, SUBMIT_TABLE, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX,
 } from '@/lib/nocodb'
 
 function linkName(field: any, key: string): string | null {
@@ -49,17 +49,17 @@ export async function GET(req: NextRequest) {
     if (uidTableId && category && !Number.isNaN(uidNumber)) {
       const catFilter = (CATEGORY_MAP[category] || category.toUpperCase()).trim().toUpperCase()
       const prefix = (stoneType && PREFIX[stoneType]?.[category]) ?? ''
-      const uidRows = await fetchAll(UID_BASE, uidTableId, 'Vendor,Vendor Style #,Category,JSI Style#')
+      const uidRows = await fetchAll(UID_BASE, uidTableId)
 
       const uidMatch = uidRows.find(r => {
-        const sameCategory = String(r['Category'] || '').trim().toUpperCase() === catFilter
-        const sameNum = parseJsiNum(String(r['JSI Style#'] || ''), prefix) === uidNumber
+        const sameCategory = String(pickField(r, 'Category') || '').trim().toUpperCase() === catFilter
+        const sameNum = parseJsiNum(String(pickField(r, 'JSI Style#') || ''), prefix) === uidNumber
         return sameCategory && sameNum
       })
 
       if (uidMatch) {
-        vendor = uidMatch['Vendor'] || null
-        vendorStyle = uidMatch['Vendor Style #'] || null
+        vendor = pickField(uidMatch, 'Vendor') || null
+        vendorStyle = pickField(uidMatch, 'Vendor Style #') || null
       }
     }
 

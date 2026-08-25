@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX, START_UID } from '@/lib/nocodb'
+import { fetchAll, pickField, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX, START_UID } from '@/lib/nocodb'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -17,22 +17,18 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const allRecords = await fetchAll(
-      UID_BASE,
-      uidTableId,
-      'Id,JSI Style#,Category,Vendor,Vendor Style #'
-    )
+    const allRecords = await fetchAll(UID_BASE, uidTableId)
 
     const catFilter = (CATEGORY_MAP[catName] || catName.toUpperCase()).trim().toUpperCase()
     const records = allRecords.filter(r =>
-      String(r['Category'] || '').trim().toUpperCase() === catFilter
+      String(pickField(r, 'Category') || '').trim().toUpperCase() === catFilter
     )
 
     const prefix = PREFIX[stName]?.[catName] ?? ''
 
     const parsed = records
       .map(r => {
-        const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
+        const jsi = String(pickField(r, 'JSI Style#') || '').trim().toUpperCase()
         let num = 0
         if (prefix && jsi.startsWith(prefix)) {
           num = parseInt(jsi.slice(prefix.length)) || 0
@@ -40,8 +36,8 @@ export async function GET(req: NextRequest) {
           const m = jsi.match(/(\d+)$/)
           if (m) num = parseInt(m[1])
         }
-        const vendor      = String(r['Vendor'] || '').trim()
-        const vendorStyle = String(r['Vendor Style #'] || '').trim()
+        const vendor      = String(pickField(r, 'Vendor') || '').trim()
+        const vendorStyle = String(pickField(r, 'Vendor Style #') || '').trim()
         const isFull = vendor !== '' || vendorStyle !== ''
         return { num, isFull }
       })

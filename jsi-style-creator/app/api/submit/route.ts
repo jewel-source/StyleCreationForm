@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAll, createRow, patchRow, SUBMIT_BASE, SUBMIT_TABLE, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX } from '@/lib/nocodb'
+import { fetchAll, findFieldKey, pickField, createRow, patchRow, SUBMIT_BASE, SUBMIT_TABLE, UID_BASE, UID_TABLES, CATEGORY_MAP, PREFIX } from '@/lib/nocodb'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,22 +35,32 @@ export async function POST(req: NextRequest) {
     if (uidTableId && styleNum) {
       const catFilter = CATEGORY_MAP[catName] || catName.toUpperCase()
 
-      const allUidRows = await fetchAll(UID_BASE, uidTableId, 'Id,JSI Style#,Category')
+      const allUidRows = await fetchAll(UID_BASE, uidTableId)
 
       const existing = allUidRows.filter(r => {
-        const jsi = String(r['JSI Style#'] || '').trim().toUpperCase()
+        const jsi = String(pickField(r, 'JSI Style#') || '').trim().toUpperCase()
         const m = jsi.match(/(\d+)$/)
         const rowNum = m ? parseInt(m[1]) : null
         return rowNum === uidNumber
       })
 
+      // Field naming for JSI Style#/Category/Vendor/Vendor Style # is not
+      // consistent across UID tables (e.g. "JSI Style#" vs "JSI Style #" vs
+      // "JSI STYLE #"). Resolve the real column names from a sample row so
+      // writes land on the existing field instead of creating a stray one.
+      const sampleRow      = allUidRows[0]
+      const jsiKey          = (sampleRow && findFieldKey(sampleRow, 'JSI Style#'))     || 'JSI Style#'
+      const categoryKey     = (sampleRow && findFieldKey(sampleRow, 'Category'))       || 'Category'
+      const vendorKey       = (sampleRow && findFieldKey(sampleRow, 'Vendor'))         || 'Vendor'
+      const vendorStyleKey  = (sampleRow && findFieldKey(sampleRow, 'Vendor Style #')) || 'Vendor Style #'
+
       let uidWriteRes
       if (existing.length > 0) {
         // Always (re)write Category too, filling it in if it was missing
         uidWriteRes = await patchRow(UID_BASE, uidTableId, existing[0].Id, {
-          'Vendor':         vendorName.trim(),
-          'Vendor Style #': vendorStyle.trim(),
-          'Category':       catFilter,
+          [vendorKey]:      vendorName.trim(),
+          [vendorStyleKey]: vendorStyle.trim(),
+          [categoryKey]:    catFilter,
           'Our Style#':     styleNum,
         })
       } else {
@@ -60,10 +70,10 @@ export async function POST(req: NextRequest) {
           : String(uidNumber).padStart(4, '0')
 
         uidWriteRes = await createRow(UID_BASE, uidTableId, {
-          'Vendor':         vendorName.trim(),
-          'Vendor Style #': vendorStyle.trim(),
-          'Category':       catFilter,
-          'JSI Style#':     jsiStyleNumber,
+          [vendorKey]:      vendorName.trim(),
+          [vendorStyleKey]: vendorStyle.trim(),
+          [categoryKey]:    catFilter,
+          [jsiKey]:         jsiStyleNumber,
           'Our Style#':     styleNum,
         })
       }
