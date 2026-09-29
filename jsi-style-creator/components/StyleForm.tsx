@@ -54,26 +54,22 @@ export default function StyleForm() {
   fetch('/api/dropdowns')
     .then(r => r.json())
     .then(data => {
-      const toOpt = (r: any, labelKey: string): Option => ({
-        id:    r.Id,
-        label: r[labelKey] || `ID ${r.Id}`,
-        code:  r['Style # Code'] || '',
-        name:  r[labelKey] || '',
-      })
-      setStoneTypes((data.stoneTypes  || []).map((r: any) => {
-        const o = toOpt(r, 'Stone Type')
-        return o.code ? { ...o, label: `${o.code}-${o.label}` } : o
-      }))
+      const toOpt = (r: any, labelKey: string): Option => {
+        const label = r[labelKey] || `ID ${r.Id}`
+        const code  = r['Style # Code'] || ''
+        return {
+          id:    r.Id,
+          label: code ? `${code}-${label}` : label,
+          code,
+          name:  label,
+        }
+      }
+      setStoneTypes((data.stoneTypes  || []).map((r: any) => toOpt(r, 'Stone Type')))
       setColorstones((data.colorstones || []).map((r: any) => toOpt(r, 'Colorstone')))
       setMetals((data.metals || []).map((r: any) => toOpt(r, 'Metal')))
       setAllSizes(data.sizes || [])
       setVendors((data.vendors || []).map((r: any) => toOpt(r, 'Vendor name')))
-      setCategories((data.categories || []).map((r: any) => ({
-        id:    r.Id,
-        label: r['Categories'] || r['Category'] || `ID ${r.Id}`,
-        code:  r['Style # Code'] || '',
-        name:  r['Categories'] || r['Category'] || '',
-      })))
+      setCategories((data.categories || []).map((r: any) => toOpt(r, r['Categories'] ? 'Categories' : 'Category')))
     })
     .catch(e => showToast('Failed to load dropdowns: ' + e.message, 'error'))
     .finally(() => setLoading(false))
@@ -123,13 +119,16 @@ export default function StyleForm() {
     setUid(''); setUidNumber(null); setUidNote('')
     const catName = categories.find(o => String(o.id) === val)?.name || ''
 
+    const toSizeOpt = (r: any): Option => {
+      const label = r['Size Selection'] || r['Size'] || `ID ${r.Id}`
+      const code  = r['Style # Code'] || ''
+      return { id: r.Id, label: code ? `${code}-${label}` : label, code, name: label }
+    }
+
     if (NO_SIZE_CATS.includes(catName)) {
       const xRec = allSizes.find((r: any) => (r['Style # Code'] || '') === 'X')
       if (xRec) {
-        setFilteredSizes([{
-          id: xRec.Id, label: xRec['Size Selection'] || 'X',
-          code: 'X', name: xRec['Size Selection'] || 'X'
-        }])
+        setFilteredSizes([toSizeOpt(xRec)])
         setSize(String(xRec.Id))
       }
       setSizeDisabled(true)
@@ -140,18 +139,12 @@ export default function StyleForm() {
           const code  = r['Style # Code'] || ''
           return label.includes(catName) || code === 'X'
         })
-        .map((r: any) => ({
-          id: r.Id, label: r['Size Selection'] || r['Size'] || `ID ${r.Id}`,
-          code: r['Style # Code'] || '', name: r['Size Selection'] || ''
-        }))
+        .map(toSizeOpt)
       setFilteredSizes(filtered)
       setSize('')
       setSizeDisabled(false)
     } else {
-      setFilteredSizes(allSizes.map((r: any) => ({
-        id: r.Id, label: r['Size Selection'] || r['Size'] || `ID ${r.Id}`,
-        code: r['Style # Code'] || '', name: r['Size Selection'] || ''
-      })))
+      setFilteredSizes(allSizes.map(toSizeOpt))
       setSize('')
       setSizeDisabled(false)
     }
