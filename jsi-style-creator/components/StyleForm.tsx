@@ -60,7 +60,10 @@ export default function StyleForm() {
         code:  r['Style # Code'] || '',
         name:  r[labelKey] || '',
       })
-      setStoneTypes((data.stoneTypes  || []).map((r: any) => toOpt(r, 'Stone Type')))
+      setStoneTypes((data.stoneTypes  || []).map((r: any) => {
+        const o = toOpt(r, 'Stone Type')
+        return o.code ? { ...o, label: `${o.code}-${o.label}` } : o
+      }))
       setColorstones((data.colorstones || []).map((r: any) => toOpt(r, 'Colorstone')))
       setMetals((data.metals || []).map((r: any) => toOpt(r, 'Metal')))
       setAllSizes(data.sizes || [])
