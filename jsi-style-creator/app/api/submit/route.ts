@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const {
       stoneTypeId, categoryId, metalId, sizeId,
       colorstoneId, ctw, uidNumber, styleNum,
-      catName, stName, vendorName, vendorStyle,
+      catName, stName, vendorName, vendorStyle, manualUid,
     } = body
 
     if (!vendorName?.trim() || !vendorStyle?.trim()) {
@@ -15,6 +15,31 @@ export async function POST(req: NextRequest) {
         { error: 'Vendor Name and Vendor Style# are required' },
         { status: 400 }
       )
+    }
+
+    if (manualUid && !(Number.isInteger(uidNumber) && uidNumber >= 0 && uidNumber <= 9999)) {
+      return NextResponse.json({ error: 'Manual UID must be exactly 4 digits' }, { status: 400 })
+    }
+
+    // A hand-typed UID may already belong to another style. Refuse rather than
+    // overwrite that UID row's vendor info (checked before the style row is created).
+    if (manualUid) {
+      const manualTableId = UID_TABLES[stName]?.[catName]
+      if (manualTableId) {
+        const rows = await fetchAll(UID_BASE, manualTableId)
+        const taken = rows.some(r => {
+          const m = String(pickField(r, 'JSI Style#') || '').trim().match(/([0-9]+)$/)
+          if (!m || parseInt(m[1]) !== uidNumber) return false
+          return String(pickField(r, 'Vendor') || '').trim() !== '' ||
+                 String(pickField(r, 'Vendor Style #') || '').trim() !== ''
+        })
+        if (taken) {
+          return NextResponse.json(
+            { error: `UID ${String(uidNumber).padStart(4, '0')} is already in use for ${stName} / ${catName}` },
+            { status: 409 }
+          )
+        }
+      }
     }
 
     const payload: any = {

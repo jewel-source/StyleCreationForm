@@ -13,7 +13,7 @@ function buildStyleNumber(
   stCode: string, catCode: string, midCode: string,
   mCode: string, uidNumber: number | null, sCode: string
 ): string | null {
-  const uidPart = uidNumber ? String(uidNumber).padStart(4, '0') : ''
+  const uidPart = uidNumber !== null ? String(uidNumber).padStart(4, '0') : ''
   if (!stCode || !catCode || !midCode || !mCode || !uidPart || !sCode) return null
   return stCode + catCode + midCode + mCode + uidPart + sCode
 }
@@ -40,6 +40,8 @@ export default function StyleForm() {
   const [uidNumber,   setUidNumber]   = useState<number | null>(null)
   const [uidNote,     setUidNote]     = useState('')
   const [uidLoading,  setUidLoading]  = useState(false)
+  const [uidMode,     setUidMode]     = useState<'auto' | 'manual'>('auto')
+  const [manualUid,   setManualUid]   = useState('')
 
   const [loading,     setLoading]     = useState(true)
   const [submitting,  setSubmitting]  = useState(false)
@@ -165,7 +167,12 @@ export default function StyleForm() {
   } else if (colorstone) {
     midCode = colorstones.find(o => String(o.id) === colorstone)?.code || ''
   }
-  const styleNum = buildStyleNumber(stCode, catCode, midCode, mCode, uidNumber, sCode)
+  // When manual mode is on, the fetched UID is ignored entirely.
+  const manualUidValid = /^[0-9]{4}$/.test(manualUid)
+  const effectiveUid = uidMode === 'manual'
+    ? (manualUidValid ? parseInt(manualUid, 10) : null)
+    : uidNumber
+  const styleNum = buildStyleNumber(stCode, catCode, midCode, mCode, effectiveUid, sCode)
   const styleValid = styleNum?.length === 13
 
   const showToast = (msg: string, type: string) => {
@@ -181,6 +188,7 @@ export default function StyleForm() {
     if (!size)       errs.size      = 'Please select a size'
     if (!vendorId)           errs.vendorName  = 'Please select a vendor'
     if (!vendorStyle.trim()) errs.vendorStyle = 'Vendor Style# is required'
+    if (uidMode === 'manual' && !manualUidValid) errs.manualUid = 'UID must be exactly 4 digits (0-9 only)'
     if (!styleValid) errs.style     = `Style # must be 13 chars. Currently: ${styleNum?.length ?? 0}`
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -203,7 +211,8 @@ export default function StyleForm() {
           sizeId:       parseInt(size),
           colorstoneId: colorstone || null,
           ctw:          ctw || null,
-          uidNumber,
+          uidNumber:    effectiveUid,
+          manualUid:    uidMode === 'manual',
           styleNum,
           stName,
           catName,
@@ -227,6 +236,7 @@ export default function StyleForm() {
     setMetal(''); setSize(''); setCtw('')
     setVendorId(''); setVendorStyle('')
     setUid(''); setUidNumber(null); setUidNote('')
+    setUidMode('auto'); setManualUid('')
     setErrors({}); setColDisabled(true); setSizeDisabled(false)
     setFilteredSizes([])
   }
@@ -268,17 +278,45 @@ export default function StyleForm() {
 
         <div className={styles.fieldGroupFull}>
           <div className={styles.field}>
-            <label>UID (Auto-assigned)</label>
-            <div className={styles.uidWrapper}>
-              <input type="text" readOnly value={uid}
-                placeholder="Select stone type & category first..."
-                className={styles.uidInput} />
-              {uidLoading && <div className={styles.uidLoader} />}
-              {!uidLoading && uid && uid !== 'Fetching...' && (
-                <span className={styles.uidLock}>🔒</span>
-              )}
+            <label>UID</label>
+            <div className={styles.radioGroup}>
+              <label className={`${styles.radioOption} ${uidMode === 'auto' ? styles.radioOptionActive : ''}`}>
+                <input type="radio" name="uidMode" checked={uidMode === 'auto'}
+                  onChange={() => { setUidMode('auto'); setErrors(e => ({ ...e, manualUid: '' })) }} />
+                Auto-assigned
+              </label>
+              <label className={`${styles.radioOption} ${uidMode === 'manual' ? styles.radioOptionActive : ''}`}>
+                <input type="radio" name="uidMode" checked={uidMode === 'manual'}
+                  onChange={() => setUidMode('manual')} />
+                Enter manually
+              </label>
             </div>
-            {uidNote && <div className={styles.uidNote}>{uidNote}</div>}
+            {uidMode === 'auto' ? (
+              <>
+                <div className={styles.uidWrapper}>
+                  <input type="text" readOnly value={uid}
+                    placeholder="Select stone type & category first..."
+                    className={styles.uidInput} />
+                  {uidLoading && <div className={styles.uidLoader} />}
+                  {!uidLoading && uid && uid !== 'Fetching...' && (
+                    <span className={styles.uidLock}>🔒</span>
+                  )}
+                </div>
+                {uidNote && <div className={styles.uidNote}>{uidNote}</div>}
+              </>
+            ) : (
+              <>
+                <input type="text" inputMode="numeric" maxLength={4} value={manualUid}
+                  onChange={e => setManualUid(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                  placeholder="4 digits, e.g. 0123"
+                  className={errors.manualUid || (manualUid && !manualUidValid) ? styles.inputError : ''} />
+                {errors.manualUid
+                  ? <span className={styles.errorMsg}>{errors.manualUid}</span>
+                  : manualUid && !manualUidValid
+                    ? <span className={styles.errorMsg}>UID must be exactly 4 digits ({manualUid.length}/4)</span>
+                    : <div className={styles.uidNote}>The auto-assigned UID is ignored while this is selected.</div>}
+              </>
+            )}
           </div>
         </div>
 
