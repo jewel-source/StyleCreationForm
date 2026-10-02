@@ -6,7 +6,7 @@ import styles from './StyleForm.module.css'
 interface Option { id: number; label: string; code: string; name: string }
 
 const NO_SIZE_CATS  = ['Earrings','Earring','Pendant','Brooch','Cufflink','Set','Anklet']
-const SIZE_CATS     = ['Ring','Bracelet','Necklace','Bangle']
+const SIZE_CATS     = ['Ring','Bracelet','Necklace','Bangle','Band']
 const GEMSTONE_TYPES = ['Natural Gemstone','Lab Gem']
 
 function buildStyleNumber(

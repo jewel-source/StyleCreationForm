@@ -31,14 +31,15 @@ const COLOR_DIAMOND_TABLES: Record<string, string> = {
   Necklace: 'mr07005zftzzsql',
   Pendant:  'm4fed6lad4lpw3z',
   Ring:     'm1m7rxzfk6vgn8q',
+  Band:     'mpov7e124xaqo63',
 }
 
 const COLOR_DIAMOND_PREFIX: Record<string, string> = {
-  Bangle: '', Bracelet: '', Earring: '', Earrings: '', Necklace: '', Pendant: '', Ring: '',
+  Bangle: '', Bracelet: '', Earring: '', Earrings: '', Necklace: '', Pendant: '', Ring: '', Band: '',
 }
 
 const COLOR_DIAMOND_START: Record<string, number> = {
-  Bangle: 1, Bracelet: 1, Earring: 1, Earrings: 1, Necklace: 1, Pendant: 1, Ring: 1,
+  Bangle: 1, Bracelet: 1, Earring: 1, Earrings: 1, Necklace: 1, Pendant: 1, Ring: 1, Band: 1,
 }
 
 const COLOR_DIAMOND_STONE_TYPES = [
@@ -70,7 +71,8 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Bangle:    'm2txsqct7he087u',
     Cufflink:  'mumel64d3luco2z',
     Brooch:    'm4mppod4okuj6jm',
-    Set: 'mpp2ezkhdbiiznk'
+    Set: 'mpp2ezkhdbiiznk',
+    Band:      'm3n82bvbe57c5ex',
   },
   'Natural Diamond': {
     Earrings:  'mqvtj5mp2yhg954',
@@ -81,6 +83,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Anklet:    'mfxzqnhz06ctptb',
     Ring:      'mbzf9ajehhh114u',
     Bracelet:  'm7hnvbybd0tz2n4',
+    Band:      'mcjtzhw5gtppyfz',
   },
   'Natural Gemstone': {
     Ring:      'mbw3vld3cz6gim1',
@@ -92,6 +95,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Brooch:    'mqrhkwx27k2upa3',
     Bracelet:  'mq15o69vfcjp54o',
     Bangle: 'ms0yuqvr7ufpelz',
+    Band:      'm5p79ub2yaops19',
   },
   'Lab Gem': {
     Bracelet: 'mf37b8briionxsz',
@@ -99,7 +103,8 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Earring: 'mpfwl0wyor2vcyl',
     Necklace: 'ms4esc5pb5eptxo',
     Pendant: 'mla68mkhhoalas8',
-    Ring: 'm0dobyiclul0ysu'
+    Ring: 'm0dobyiclul0ysu',
+    Band: 'mabf8c6cf02fo1m',
   },
   'No Stone': {
     Set: 'mvip9hxmk4fk3mk',
@@ -110,6 +115,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Necklace: 'mpzeec8cg4rzbp3',
     Pendant: 'mucdbz8f89x2fm1',
     Ring: 'mu1axclm5vmcwj7',
+    Band: 'mpgo846uzrpv2ih',
   },
 }
 
@@ -130,7 +136,8 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Bangle:    'AABG',
     Cufflink:  'AAC',
     Brooch:    '',
-    Set: 'AA-SET-'
+    Set: 'AA-SET-',
+    Band:      '',
   },
   'Natural Diamond': {
     Earrings:  '',
@@ -141,6 +148,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Anklet:    '',
     Ring:      '',
     Bracelet:  '',
+    Band:      '',
   },
   'Natural Gemstone': {
     Ring:      '',
@@ -152,6 +160,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Brooch:    '',
     Bracelet:  '',
     Bangle:    '',
+    Band:      '',
   },
   'Lab Gem':{
     Ring:      '',
@@ -163,6 +172,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Brooch:    '',
     Bracelet:  '',
     Bangle:    '',
+    Band:      '',
   },
   'No Stone': {
     Set: '',
@@ -173,6 +183,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Necklace: '',
     Pendant: '',
     Ring: '',
+    Band: '',
   },
 }
 
@@ -192,6 +203,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Bracelet:  241,
     Bangle:    46,
     Set:       36,
+    Band:      1,
   },
   'Natural Diamond': {
     Earrings:  3027,
@@ -202,6 +214,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Anklet:    4,
     Ring:      6842,
     Bracelet:  1532,
+    Band:      1,
   },
   'Natural Gemstone': {
     Ring:      7408,
@@ -213,6 +226,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Brooch:    10,
     Bracelet:  1063,
     Bangle:    175,
+    Band:      1,
   },
   'Lab Gem': {
     Bracelet: 14,
@@ -221,6 +235,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Necklace: 14,
     Pendant: 56,
     Ring: 57,
+    Band: 1,
   },
   'No Stone': {
     Set: 224,
@@ -231,6 +246,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Necklace: 85,
     Pendant: 52,
     Ring: 46,
+    Band: 1,
   },
 }
 
@@ -250,6 +266,7 @@ export const CATEGORY_MAP: Record<string, string> = {
   Brooch:    'BROOCH',
   Set:       'SET',
   Anklet:    'ANKLET',
+  Band:      'BAND',
 }
 
 // UID tables in NocoDB don't have consistent field naming across categories —
