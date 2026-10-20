@@ -1,4 +1,5 @@
 import StyleForm from '@/components/StyleForm'
+import BulkUpload from '@/components/BulkUpload'
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
             Style Creation Portal
           </p>
         </div>
+        <BulkUpload />
         <StyleForm />
       </div>
     </main>
