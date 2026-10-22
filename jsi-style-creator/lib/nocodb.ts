@@ -84,6 +84,7 @@ export const UID_TABLES: Record<string, Record<string, string>> = {
     Ring:      'mbzf9ajehhh114u',
     Bracelet:  'm7hnvbybd0tz2n4',
     Band:      'mcjtzhw5gtppyfz',
+    Set: 'vwd7azoj7r71vqfy'
   },
   'Natural Gemstone': {
     Ring:      'mbw3vld3cz6gim1',
@@ -149,6 +150,7 @@ export const PREFIX: Record<string, Record<string, string>> = {
     Ring:      '',
     Bracelet:  '',
     Band:      '',
+    Set:       '',
   },
   'Natural Gemstone': {
     Ring:      '',
@@ -215,6 +217,7 @@ export const START_UID: Record<string, Record<string, number>> = {
     Ring:      6842,
     Bracelet:  1532,
     Band:      1,
+    Set: 1,
   },
   'Natural Gemstone': {
     Ring:      7408,

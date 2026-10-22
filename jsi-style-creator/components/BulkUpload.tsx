@@ -105,6 +105,33 @@ export default function BulkUpload() {
     )
   }
 
+  // Excel report of every row from this run (created, failed and skipped).
+  const downloadReport = async () => {
+    if (!rows) return
+    const XLSX = await import('xlsx')
+    const data = rows.map(r => ({
+      'Row':           r.rowNum,
+      'Status':        STATUS_LABEL[r.status].replace(/^[✓✗]\s*/, ''),
+      'Style #':       r.styleNum || '',
+      'UID':           r.uidDisplay || '',
+      'Stone Type':    r.display.stoneType,
+      'Category':      r.display.category,
+      'Metal':         r.display.metal,
+      'Size':          r.display.size || '',
+      'CTW':           r.input.ctw || '',
+      'Colorstone':    r.display.colorstone || '',
+      'Vendor':        r.display.vendor,
+      'Vendor Style#': r.input.vendorStyle,
+      'Error':         [...r.errors, ...(r.saveError ? [r.saveError] : [])].join('; '),
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = Object.keys(data[0] || {}).map(k => ({ wch: Math.max(k.length, 14) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Styles')
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
+    XLSX.writeFile(wb, `created-styles-${stamp}.xlsx`)
+  }
+
   const closeDialog = () => {
     if (phase === 'creating') return
     setRows(null)
@@ -229,9 +256,10 @@ export default function BulkUpload() {
               {phase === 'creating' && (
                 <button className={styles.primaryBtn} disabled>Creating {doneCount + 1} of {readyCount}…</button>
               )}
-              {phase === 'done' && (
+              {phase === 'done' && <>
+                <button className={styles.secondaryBtn} onClick={downloadReport}>⬇ Download Excel</button>
                 <button className={styles.primaryBtn} onClick={closeDialog}>Done</button>
-              )}
+              </>}
             </div>
           </div>
         </div>
