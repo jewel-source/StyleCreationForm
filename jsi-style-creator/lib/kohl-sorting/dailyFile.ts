@@ -65,6 +65,11 @@ export function buildOrderGroups(sortedIndices: number[], pages: PdfPage[], dsco
   return groups
 }
 
+/** Sets are identified by "SET" appearing in the style number (e.g. AA-SET-1234). */
+export function isSetStyle(...styles: string[]): boolean {
+  return styles.some(s => /set/i.test(s))
+}
+
 export interface SortOrdersResult {
   /** Final fulfillment sequence — empty if blocked by missingUpcs/emptyOrders. */
   sorted: OrderGroup[]
@@ -80,6 +85,7 @@ export function sortOrdersForFulfillment(
   const missingUpcs = new Set<string>()
   const singleLine: { order: OrderGroup; rightClickStyle: string; jsStyle: string }[] = []
   const multiLine: OrderGroup[] = []
+  const setOrderNos = new Set<string>()
 
   for (const order of orders) {
     if (order.lineItems.length === 0) {
@@ -87,7 +93,9 @@ export function sortOrdersForFulfillment(
       continue
     }
     for (const item of order.lineItems) {
-      if (!skuMap.get(item.upc)) missingUpcs.add(item.upc)
+      const entry = skuMap.get(item.upc)
+      if (!entry) missingUpcs.add(item.upc)
+      else if (isSetStyle(entry.styleNumber, entry.rightClickStyleNumber)) setOrderNos.add(order.orderNo)
     }
     if (order.lineItems.length === 1) {
       const entry = skuMap.get(order.lineItems[0].upc)
@@ -104,7 +112,11 @@ export function sortOrdersForFulfillment(
     a.rightClickStyle.localeCompare(b.rightClickStyle, undefined, { numeric: true }) ||
     a.jsStyle.localeCompare(b.jsStyle, undefined, { numeric: true })
   )
-  return { sorted: [...singleLine.map(s => s.order), ...multiLine], missingUpcs: [], emptyOrders: [] }
+  // Orders containing a set go first (single-line sets, then multi-line), then the rest.
+  const ordered = [...singleLine.map(s => s.order), ...multiLine]
+  const sets = ordered.filter(o => setOrderNos.has(o.orderNo))
+  const rest = ordered.filter(o => !setOrderNos.has(o.orderNo))
+  return { sorted: [...sets, ...rest], missingUpcs: [], emptyOrders: [] }
 }
 
 export function buildCustomerByOrder(dsco: ParsedDsco): Map<string, string> {
@@ -248,7 +260,9 @@ export function buildStyleWiseSummary(rows: DailyFileRow[]): StyleWiseSummary[] 
   }
 
   return [...byStyle.entries()]
-    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB, undefined, { numeric: true }))
+    .sort(([keyA], [keyB]) =>
+      Number(isSetStyle(keyB)) - Number(isSetStyle(keyA)) ||   // sets on top
+      keyA.localeCompare(keyB, undefined, { numeric: true }))
     .map(([, summary]) => summary)
 }
 
